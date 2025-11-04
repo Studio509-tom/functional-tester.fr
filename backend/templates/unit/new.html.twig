@@ -35,34 +35,5 @@
       </div>
     </div>
   </div>
-  </div>
-<script>
-  (function(){
-    function $(id){ return document.getElementById(id); }
-    var btn = $('aiHttpBtn'); if (!btn) return;
-    var modal = $('aiHttpModal'); var closeBtn = $('aiHttpClose'); var cancelBtn = $('aiHttpCancel'); var genBtn = $('aiHttpGenerate');
-    function show(){ modal.style.display = 'block'; }
-    function hide(){ modal.style.display = 'none'; }
-    btn.addEventListener('click', show);
-    closeBtn.addEventListener('click', hide); cancelBtn.addEventListener('click', hide);
-    genBtn.addEventListener('click', async function(){
-      var ta = $('aiHttpPrompt'); var err = $('aiHttpError'); err.classList.add('d-none'); err.textContent = '';
-      var prompt = (ta.value||'').trim(); if (!prompt) { err.textContent = 'Veuillez saisir un prompt'; err.classList.remove('d-none'); return; }
-      genBtn.disabled = true; genBtn.textContent = 'Génération…';
-      try {
-        var resp = await fetch('/api/ai/generate-http-tests', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
-        var data = await resp.json();
-        if (!resp.ok || data.error) throw new Error(data.error || ('Erreur ' + resp.status));
-        var tests = Array.isArray(data.tests) ? data.tests : [];
-        var form = document.querySelector('form'); if (!form) return;
-        var taJson = form.querySelector('textarea.unit-tests-editor'); if (!taJson) return;
-        var host = taJson.previousElementSibling && taJson.previousElementSibling.previousElementSibling ? taJson.previousElementSibling.previousElementSibling : null;
-        if (host && typeof host.__ubSetTests === 'function') { host.__ubSetTests(tests); }
-        else { taJson.value = JSON.stringify(tests, null, 2); }
-        hide();
-      } catch(e){ err.textContent = e.message; err.classList.remove('d-none'); }
-      finally { genBtn.disabled = false; genBtn.textContent = 'Générer'; }
-    });
-  })();
-</script>
+  {# JS moved to /js/pages/unit.js #}
 {% endblock %}

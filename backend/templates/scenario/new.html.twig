@@ -57,7 +57,7 @@
       <label class="form-label">Viewport (desktop)</label>
       <div class="input-group">
         <span class="input-group-text"><i class="bi bi-display"></i></span>
-        <select class="form-select" id="viewportPreset">
+        <select class="form-select" id="viewportPreset" data-w-input-id="{{ form.viewportWidth.vars.id }}" data-h-input-id="{{ form.viewportHeight.vars.id }}">
           <option value="">Choisir un preset…</option>
           <option value="1366x768">1366 × 768</option>
           <option value="1920x1080">1920 × 1080</option>
@@ -114,43 +114,7 @@
     var sel = document.getElementById('viewportPreset');
     if (!sel) return;
     sel.addEventListener('change', function(){
-      var v = sel.value;
-      if (!v) return;
-      var parts = v.split('x');
-      if (parts.length !== 2) return;
-      var w = document.getElementById('{{ form.viewportWidth.vars.id }}');
-      var h = document.getElementById('{{ form.viewportHeight.vars.id }}');
-      if (w) w.value = parts[0];
-      if (h) h.value = parts[1];
-    });
-  })();
-</script>
-<script>
-  (function(){
-    function $(id){ return document.getElementById(id); }
-    var btn = $('aiStepsBtn'); if (!btn) return;
-    var modal = $('aiStepsModal'); var closeBtn = $('aiStepsClose'); var cancelBtn = $('aiStepsCancel'); var genBtn = $('aiStepsGenerate');
-    function show(){ modal.style.display = 'block'; }
-    function hide(){ modal.style.display = 'none'; }
-    btn.addEventListener('click', show);
-    closeBtn.addEventListener('click', hide); cancelBtn.addEventListener('click', hide);
-    genBtn.addEventListener('click', async function(){
-      var ta = $('aiStepsPrompt'); var err = $('aiStepsError'); err.classList.add('d-none'); err.textContent = '';
-      var prompt = (ta.value||'').trim(); if (!prompt) { err.textContent = 'Veuillez saisir un prompt'; err.classList.remove('d-none'); return; }
-      genBtn.disabled = true; genBtn.textContent = 'Génération…';
-      try {
-        var resp = await fetch('/api/ai/generate-scenario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
-        var data = await resp.json();
-        if (!resp.ok || data.error) throw new Error(data.error || ('Erreur ' + resp.status));
-        var steps = Array.isArray(data.steps) ? data.steps : [];
-        var form = document.querySelector('form'); if (!form) return;
-        var taJson = form.querySelector('textarea.json-editor'); if (!taJson) return;
-        var host = taJson.previousElementSibling && taJson.previousElementSibling.previousElementSibling ? taJson.previousElementSibling.previousElementSibling : null; // builderHost in our wrapping structure
-        if (host && typeof host.__sbSetSteps === 'function') { host.__sbSetSteps(steps); }
-        else { taJson.value = JSON.stringify(steps, null, 2); }
-        hide();
-      } catch(e){ err.textContent = e.message; err.classList.remove('d-none'); }
-      finally { genBtn.disabled = false; genBtn.textContent = 'Générer'; }
+      {# JS moved to /js/pages/scenario.js #}
     });
   })();
 </script>
