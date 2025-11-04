@@ -35,3 +35,6 @@ worker/test_run.json
 # Keep .ddev config committed; ignore any local state files if present
 .ddev/.homeadditions/
 .ddev/.downloads/
+
+# Local notes (not for repo)
+idee.md
