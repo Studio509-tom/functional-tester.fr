@@ -1,0 +1,37 @@
+# Global
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Symfony backend
+backend/vendor/
+backend/var/
+backend/.env.local
+backend/.env.local.php
+backend/.phpunit.cache/
+backend/public/output/
+
+# Node worker
+worker/node_modules/
+worker/.cache/
+worker/output/
+worker/.env
+worker/.env.local
+worker/test_run.json
+
+# Composer/npm locks (keep if you prefer reproducible installs)
+# Uncomment to ignore locks:
+# backend/composer.lock
+# worker/package-lock.json
+
+# DDEV
+# Keep .ddev config committed; ignore any local state files if present
+.ddev/.homeadditions/
+.ddev/.downloads/

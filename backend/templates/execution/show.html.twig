@@ -1,0 +1,167 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Exécution #{{ execution.id }} — {{ execution.scenario.name }}{% endblock %}
+
+{% block body %}
+<div class="container py-3">
+  <div class="d-flex align-items-center mb-3">
+    <a href="{{ path('scenario_show', {id: execution.scenario.id}) }}" class="btn btn-sm btn-outline-secondary me-2">
+      ← Retour scénario
+    </a>
+    <h4 class="mb-0">Exécution #{{ execution.id }}</h4>
+    <span class="ms-3 badge bg-{{ execution.status == 'success' ? 'success' : (execution.status == 'failed' ? 'danger' : 'secondary') }}">{{ execution.status|upper }}</span>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h6 class="card-title">Résumé</h6>
+          <dl class="row small mb-0">
+            <dt class="col-4">Scénario</dt>
+            <dd class="col-8"><a href="{{ path('scenario_show', {id: execution.scenario.id}) }}">{{ execution.scenario.name }}</a></dd>
+
+            <dt class="col-4">Début</dt>
+            <dd class="col-8">{{ execution.startedAt ? execution.startedAt|date('Y-m-d H:i:s') : '—' }}</dd>
+
+            <dt class="col-4">Fin</dt>
+            <dd class="col-8">{{ execution.finishedAt ? execution.finishedAt|date('Y-m-d H:i:s') : '—' }}</dd>
+
+            {% set total = 0 %}
+            {% if result.durationMs is defined %}
+              {% set total = result.durationMs %}
+            {% elseif execution.startedAt and execution.finishedAt %}
+              {% set total = (execution.finishedAt|date('U') - execution.startedAt|date('U')) * 1000 %}
+            {% endif %}
+            <dt class="col-4">Durée</dt>
+            <dd class="col-8">{{ total ? (total/1000)|number_format(2, '.', ' ') ~ ' s' : '—' }}</dd>
+
+            {% if result.queuedMs is defined %}
+            <dt class="col-4">Attente file</dt>
+            <dd class="col-8">{{ (result.queuedMs/1000)|number_format(2, '.', ' ') }} s</dd>
+            {% endif %}
+          </dl>
+
+          <hr>
+          {% if result.meta is defined %}
+          <h6 class="card-title">Métadonnées d'exécution</h6>
+          <dl class="row small">
+            {% if result.meta.viewport is defined %}
+              <dt class="col-5">Viewport</dt>
+              <dd class="col-7">{{ result.meta.viewport.width }} × {{ result.meta.viewport.height }}</dd>
+            {% endif %}
+            {% if result.meta.deviceScaleFactor is defined %}
+              <dt class="col-5">Device scale factor</dt>
+              <dd class="col-7">{{ result.meta.deviceScaleFactor }}</dd>
+            {% endif %}
+            {% if result.meta.screenshotFullPage is defined %}
+              <dt class="col-5">Capture full page</dt>
+              <dd class="col-7">{{ result.meta.screenshotFullPage ? 'Oui' : 'Non' }}</dd>
+            {% endif %}
+            {% if result.meta.userAgent is defined and result.meta.userAgent %}
+              <dt class="col-5">User-Agent</dt>
+              <dd class="col-7">{{ result.meta.userAgent }}</dd>
+            {% endif %}
+          </dl>
+          <hr>
+          {% endif %}
+          
+          <h6 class="card-title d-flex align-items-center justify-content-between">
+            <span>Capture finale</span>
+            {% if execution.screenshotPath %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#screenshotModal">Agrandir</button>
+            {% endif %}
+          </h6>
+          {% if execution.screenshotPath %}
+            <a href="{{ path('execution_screenshot', {id: execution.id}) }}" target="_blank">
+              <img id="finalShot" src="{{ path('execution_screenshot', {id: execution.id}) }}" class="img-fluid rounded border" alt="screenshot">
+            </a>
+            <div id="finalShotMeta" class="small text-muted mt-1"></div>
+          {% else %}
+            <div class="text-muted small">Aucune capture enregistrée</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+      <div class="card h-100">
+        <div class="card-body">
+          <h6 class="card-title">Timeline des étapes</h6>
+          {% set steps = result.steps is defined and result.steps is iterable ? result.steps : [] %}
+          {% if steps is empty %}
+            <div class="text-muted small">Pas de détail d'étapes disponible.</div>
+          {% else %}
+            <ul class="list-group">
+              {% for s in steps %}
+                <li class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div class="me-3">
+                      <div class="fw-semibold">#{{ s.index + 1 }} — {{ s.action }}</div>
+                      <div class="small text-muted">
+                        {% if s.durationMs is defined %}
+                          {{ (s.durationMs/1000)|number_format(2, '.', ' ') }} s
+                        {% else %}
+                          —
+                        {% endif %}
+                        • {{ s.ok ? 'OK' : 'Erreur' }}
+                        {% if s.attempts is defined and s.attempts > 1 %} • {{ s.attempts }} tentatives{% endif %}
+                        {% if s.error is defined and s.error %}<div class="text-danger mt-1">{{ s.error }}</div>{% endif %}
+                      </div>
+                    </div>
+                    <div class="text-nowrap">
+                      {% if s.screenshotPath is defined and s.screenshotPath %}
+                        <a href="{{ path('execution_step_screenshot', {id: execution.id}) ~ '?path=' ~ s.screenshotPath|url_encode }}" target="_blank" class="btn btn-sm btn-outline-primary">Voir capture</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+
+          {% if result.errors is defined and result.errors %}
+            <hr>
+            <h6 class="card-title">Erreurs</h6>
+            <pre class="small bg-body-tertiary p-2 rounded border">{{ result.errors|join('\n') }}</pre>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if execution.screenshotPath %}
+<!-- Modal full-width viewer for the final screenshot -->
+<div class="modal fade" id="screenshotModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content bg-body">
+      <div class="modal-header">
+        <h6 class="modal-title">Capture finale — Exécution #{{ execution.id }}</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <img src="{{ path('execution_screenshot', {id: execution.id}) }}" alt="screenshot" style="width: 100%; height: auto; display: block;"/>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-primary" target="_blank" href="{{ path('execution_screenshot', {id: execution.id}) }}">Ouvrir dans un nouvel onglet</a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+  </div>
+{% endif %}
+<script>
+  (function(){
+    var img = document.getElementById('finalShot');
+    var meta = document.getElementById('finalShotMeta');
+    if (!img || !meta) return;
+    function update(){
+      if (img.naturalWidth && img.naturalHeight) {
+        meta.textContent = 'Résolution: ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px';
+      }
+    }
+    if (img.complete) update(); else img.addEventListener('load', update);
+  })();
+</script>
+{% endblock %}

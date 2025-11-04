@@ -1,0 +1,88 @@
+{% extends 'base.html.twig' %}
+{% block title %}Rapport - {{ suite.name }}{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Rapport d'exécution</h1>
+  <div class="d-flex gap-2">
+    <a href="{{ path('unit_show', {id: suite.id}) }}" class="btn btn-secondary">Retour au test</a>
+  </div>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-12 col-md-3">
+    <div class="card text-bg-{{ result.failed == 0 ? 'success' : 'danger' }}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fs-6">Statut</div>
+            <div class="fw-bold">{{ result.failed == 0 ? 'Succès' : 'Échecs' }}</div>
+          </div>
+          <i class="bi {{ result.failed == 0 ? 'bi-check-circle' : 'bi-x-circle' }} fs-2"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-4 col-md-3">
+    <div class="card">
+      <div class="card-body text-center">
+        <div class="text-muted">Total</div>
+        <div class="fs-4 fw-bold">{{ result.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-4 col-md-3">
+    <div class="card">
+      <div class="card-body text-center">
+        <div class="text-success">Réussis</div>
+        <div class="fs-4 fw-bold text-success">{{ result.passed }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-4 col-md-3">
+    <div class="card">
+      <div class="card-body text-center">
+        <div class="text-danger">Échecs</div>
+        <div class="fs-4 fw-bold text-danger">{{ result.failed }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Détails par cas</h5>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nom</th>
+            <th>Méthode</th>
+            <th>URL</th>
+            <th>Statut HTTP</th>
+            <th>Résultat</th>
+            <th>Durée</th>
+            <th>Erreur</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in result.cases %}
+          <tr class="{{ c.ok ? '' : 'table-danger' }}">
+            <td>{{ loop.index }}</td>
+            <td>{{ c.name }}</td>
+            <td><span class="badge text-bg-secondary">{{ c.method }}</span></td>
+            <td class="text-truncate" style="max-width: 380px;" title="{{ c.url }}">{{ c.url }}</td>
+            <td>{{ c.status ?? '-' }}</td>
+            <td>
+              {% if c.ok %}<span class="badge text-bg-success">OK</span>{% else %}<span class="badge text-bg-danger">ÉCHEC</span>{% endif %}
+            </td>
+            <td>{{ c.durationMs }} ms</td>
+            <td>{{ c.error ?: '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8">Aucun cas exécuté</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

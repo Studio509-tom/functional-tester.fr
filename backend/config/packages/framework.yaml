@@ -1,0 +1,8 @@
+framework:
+    secret: "%env(APP_SECRET)%"
+    http_method_override: true
+    session:
+        handler_id: null
+        cookie_secure: auto
+    php_errors:
+        log: true

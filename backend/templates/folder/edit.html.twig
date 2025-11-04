@@ -1,0 +1,10 @@
+{% extends 'base.html.twig' %}
+{% block title %}Éditer dossier{% endblock %}
+{% block body %}
+<h1>Éditer dossier</h1>
+{{ form_start(form) }}
+  {{ form_row(form.name) }}
+  {{ form_row(form.parent) }}
+  <button class="btn btn-primary">Mettre à jour</button>
+{{ form_end(form) }}
+{% endblock %}

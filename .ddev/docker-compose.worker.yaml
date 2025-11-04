@@ -1,0 +1,23 @@
+version: '3.6'
+services:
+  worker:
+    image: ghcr.io/puppeteer/puppeteer:22.13.1
+    container_name: ddev-${DDEV_SITENAME}-worker
+    restart: unless-stopped
+    working_dir: /var/www/html/worker
+    command: sh -c "npm ci || npm install && node ./src/index.js"
+    volumes:
+      - ..:/var/www/html:cached
+    environment:
+      - PUPPETEER_CACHE_DIR=/var/www/html/worker/.cache/puppeteer
+      - PUPPETEER_SKIP_DOWNLOAD=false
+      - PUPPETEER_EXECUTABLE_PATH
+      - NODE_ENV=production
+    expose:
+      - "4000"
+    ports:
+      - "4000"
+    labels:
+      - "com.ddev.site-name=${DDEV_SITENAME}"
+      - "com.ddev.approot=${DDEV_APPROOT}"
+      - "com.ddev.platform=worker"

@@ -1,0 +1,1026 @@
+// Functional Tester frontend helpers
+// - Theme management (light/dark) with localStorage persistence
+// - Enhance JSON textarea with CodeMirror + JSON lint
+// - No-code Step Builder: add/edit/reorder steps visually, preview via API
+// - Small UI polish: staggered animations for lists/tables
+//
+// NOTE: The Step Builder hides the raw JSON editor by default to keep the UI
+// approachable, but keeps content in sync on submit.
+//
+// Enhance JSON textarea into a CodeMirror editor with linting and helpers
+(function () {
+	if (typeof document === 'undefined') return;
+	// Theme management
+	const THEME_KEY = 'theme'; // localStorage key
+	function getPreferredTheme() {
+		try {
+			const stored = localStorage.getItem(THEME_KEY);
+			if (stored === 'dark' || stored === 'light') return stored;
+		} catch (_) {}
+		return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+	}
+	// Apply theme to <html data-bs-theme> and sync CodeMirror theme
+	function applyTheme(theme) {
+		document.documentElement.setAttribute('data-bs-theme', theme);
+		try { localStorage.setItem(THEME_KEY, theme); } catch (_) {}
+		// Sync CodeMirror theme
+		const cmTheme = theme === 'dark' ? 'dracula' : 'default';
+		if (window.__cmEditors && window.__cmEditors.length) {
+			window.__cmEditors.forEach(ed => ed.setOption('theme', cmTheme));
+		}
+		// Toggle button label
+		const btn = document.getElementById('themeToggle');
+		if (btn) btn.textContent = theme === 'dark' ? 'Mode clair' : 'Mode sombre';
+	}
+	// Toggle between light/dark (used by the navbar button)
+	function toggleTheme() {
+		const cur = document.documentElement.getAttribute('data-bs-theme') || getPreferredTheme();
+		applyTheme(cur === 'dark' ? 'light' : 'dark');
+	}
+	document.addEventListener('DOMContentLoaded', () => {
+		const btn = document.getElementById('themeToggle');
+		if (btn) {
+			btn.addEventListener('click', toggleTheme);
+			// Initialize button label
+			const cur = document.documentElement.getAttribute('data-bs-theme') || getPreferredTheme();
+			applyTheme(cur);
+		}
+	});
+	// Ensure jsonlint is globally available for CodeMirror lint addon
+	if (typeof window !== 'undefined' && typeof window.jsonlint === 'undefined' && typeof window.jsonlint !== 'function' && typeof jsonlint !== 'undefined') {
+		window.jsonlint = jsonlint;
+	}
+
+
+
+	// Upgrade any textarea.json-editor into CodeMirror with builder attached
+	function initJsonEditors() {
+		const areas = document.querySelectorAll('textarea.json-editor');
+			areas.forEach((ta) => {
+			// Avoid double init
+			if (ta.dataset.cmInitialized) return;
+			ta.dataset.cmInitialized = '1';
+
+			// Wrap with container and add builder container before the textarea
+			const wrapper = document.createElement('div');
+			wrapper.className = 'json-editor-container';
+			ta.parentNode.insertBefore(wrapper, ta);
+			// Step builder placeholder (will be filled after editor creation)
+			const builderHost = document.createElement('div');
+			builderHost.className = 'mb-2';
+			wrapper.appendChild(builderHost);
+			// Toolbar to toggle between Builder and Advanced JSON
+			const toolbar = document.createElement('div');
+			toolbar.className = 'd-flex justify-content-end gap-2 mb-2';
+			const toggleBtn = document.createElement('button');
+			toggleBtn.type = 'button';
+			toggleBtn.className = 'btn btn-sm btn-outline-secondary';
+			toggleBtn.id = 'sb-toggle-mode';
+			toggleBtn.textContent = 'Basculer en mode JSON avancé';
+			// Quick Snippets controls
+			const snippetSelect = document.createElement('select');
+			snippetSelect.className = 'form-select form-select-sm w-auto';
+			snippetSelect.id = 'sb-snippet';
+			snippetSelect.innerHTML = [
+				'<option value="" selected>— Snippet —</option>',
+				'<option value="basic">Exemple basique</option>',
+				'<option value="visitClick">Visiter puis cliquer</option>',
+				'<option value="login">Formulaire de login (faux)</option>',
+				'<option value="waitThenClick">Attendre un sélecteur puis cliquer</option>',
+				'<option value="mobileViewport">Preset mobile (viewport + UA)</option>'
+			].join('');
+			const snippetBtn = document.createElement('button');
+			snippetBtn.type = 'button';
+			snippetBtn.className = 'btn btn-sm btn-outline-primary';
+			snippetBtn.id = 'sb-insert-snippet';
+			snippetBtn.textContent = 'Insérer';
+			// Order: snippets then toggle
+			toolbar.appendChild(snippetSelect);
+			toolbar.appendChild(snippetBtn);
+			toolbar.appendChild(toggleBtn);
+			wrapper.appendChild(toolbar);
+			wrapper.appendChild(ta);
+
+					// Initialize CodeMirror if available, else keep textarea
+					if (window.CodeMirror) {
+				const editor = window.CodeMirror.fromTextArea(ta, {
+					mode: { name: 'javascript', json: true },
+					lineNumbers: true,
+					matchBrackets: true,
+					autoCloseBrackets: true,
+					gutters: ['CodeMirror-lint-markers'],
+							lint: true,
+							theme: (document.documentElement.getAttribute('data-bs-theme') === 'dark') ? 'dracula' : 'default',
+				});
+				editor.setSize(null, 380);
+						// Keep a global reference for theme syncing
+						window.__cmEditors = window.__cmEditors || [];
+						window.__cmEditors.push(editor);
+						// Wrap/containers
+						const cmWrap = editor.getWrapperElement();
+				// Attach a visual Step Builder to manipulate JSON without typing
+			attachStepBuilder(builderHost, editor, ta);
+						// Toggle button logic with localStorage persistence
+						const MODE_KEY = 'sb-mode:' + (ta.id || ta.name || location.pathname);
+						function showBuilder() {
+							builderHost.style.display = '';
+							cmWrap.style.display = 'none';
+							toggleBtn.textContent = 'Basculer en mode JSON avancé';
+							try { localStorage.setItem(MODE_KEY, 'builder'); } catch(_){}
+						}
+						function showJson() {
+							builderHost.style.display = 'none';
+							cmWrap.style.display = '';
+							try { editor.refresh && editor.refresh(); } catch(_){}
+							toggleBtn.textContent = 'Revenir au constructeur visuel';
+							try { localStorage.setItem(MODE_KEY, 'json'); } catch(_){}
+						}
+						// Apply initial mode from storage (default: builder)
+						let initialMode = 'builder';
+						try { initialMode = localStorage.getItem(MODE_KEY) || 'builder'; } catch(_){}
+						if (initialMode === 'json') { showJson(); } else { showBuilder(); }
+						toggleBtn.addEventListener('click', () => {
+							const isBuilderVisible = builderHost.style.display !== 'none';
+							if (isBuilderVisible) {
+								// Switch to JSON view
+								showJson();
+							} else {
+								// when returning to builder, try to parse and render
+								try {
+									const v = editor.getValue();
+									JSON.parse(v); // validation only; builder reads from editor internally
+								} catch (e) {
+									if (!confirm('Le JSON n\'est pas valide. Revenir quand même au constructeur ?')) return;
+								}
+								showBuilder();
+							}
+						});
+
+						// Snippets insertion
+						function buildSnippet(id) {
+							switch(id) {
+								case 'basic':
+									return [
+										{ action: 'goto', url: 'https://example.org' },
+										{ action: 'expectTitle', text: 'Example' }
+									];
+								case 'visitClick':
+									return [
+										{ action: 'goto', url: 'https://example.org' },
+										{ action: 'click', selector: 'a' },
+										{ action: 'wait', ms: 500 }
+									];
+								case 'login':
+									return [
+										{ action: 'goto', url: 'https://example.org/login' },
+										{ action: 'fill', selector: '[name=email]', value: 'john@doe.com' },
+										{ action: 'fill', selector: '[name=password]', value: 'secret' },
+										{ action: 'click', selector: 'button[type=submit]' },
+										{ action: 'waitFor', selector: '#dashboard', timeout: 3000 }
+									];
+								case 'waitThenClick':
+									return [
+										{ action: 'goto', url: 'https://example.org' },
+										{ action: 'waitFor', selector: 'a.more', timeout: 2000 },
+										{ action: 'click', selector: 'a.more' }
+									];
+								case 'mobileViewport':
+									return [
+										{ action: 'viewport', width: 390, height: 844 },
+										{ action: 'userAgent', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }
+									];
+								default:
+									return null;
+							}
+						}
+						snippetBtn.addEventListener('click', () => {
+							const id = snippetSelect.value;
+							if (!id) return;
+							const snippet = buildSnippet(id);
+							if (!snippet) return;
+							const cur = (function(){ try { return JSON.parse(editor.getValue()||'[]'); } catch(_) { return []; } })();
+							const next = cur.concat(snippet);
+							// Prefer builder's API to update and re-render list
+							if (typeof builderHost.__sbSetSteps === 'function') {
+								builderHost.__sbSetSteps(next);
+							} else {
+								editor.setValue(JSON.stringify(next, null, 2));
+							}
+							snippetSelect.value = '';
+						});
+
+						// On form submit, sync editor content back to textarea
+				const form = ta.closest('form');
+				if (form) {
+					form.addEventListener('submit', (e) => {
+						// Sync
+						ta.value = editor.getValue();
+						// Validate
+						try {
+							JSON.parse(ta.value);
+						} catch (err) {
+							e.preventDefault();
+							alert('Veuillez corriger le JSON avant de soumettre : ' + err.message);
+						}
+					});
+				}
+
+				// Pretty-print initial value if valid and minified
+				try {
+					const v = ta.value || '';
+					if (v.trim()) {
+						editor.setValue(JSON.stringify(JSON.parse(v), null, 2));
+					}
+				} catch (_) {
+					// ignore
+				}
+					}
+					else {
+						// No CodeMirror available, still attach builder using a minimal adapter
+						const adapter = {
+							getValue: () => ta.value,
+							setValue: (v) => { ta.value = v; }
+						};
+						attachStepBuilder(builderHost, adapter, ta);
+						// Bind snippet insertion in fallback as well
+						function buildSnippet(id) {
+							switch(id) {
+								case 'basic':
+									return [
+										{ action: 'goto', url: 'https://example.org' },
+										{ action: 'expectTitle', text: 'Example' }
+									];
+								case 'visitClick':
+									return [
+										{ action: 'goto', url: 'https://example.org' },
+										{ action: 'click', selector: 'a' },
+										{ action: 'wait', ms: 500 }
+									];
+								case 'login':
+									return [
+										{ action: 'goto', url: 'https://example.org/login' },
+										{ action: 'fill', selector: '[name=email]', value: 'john@doe.com' },
+										{ action: 'fill', selector: '[name=password]', value: 'secret' },
+										{ action: 'click', selector: 'button[type=submit]' },
+										{ action: 'waitFor', selector: '#dashboard', timeout: 3000 }
+									];
+								case 'waitThenClick':
+									return [
+										{ action: 'goto', url: 'https://example.org' },
+										{ action: 'waitFor', selector: 'a.more', timeout: 2000 },
+										{ action: 'click', selector: 'a.more' }
+									];
+								case 'mobileViewport':
+									return [
+										{ action: 'viewport', width: 390, height: 844 },
+										{ action: 'userAgent', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }
+									];
+								default:
+									return null;
+							}
+						}
+						snippetBtn.addEventListener('click', () => {
+							const id = snippetSelect.value;
+							if (!id) return;
+							const snippet = buildSnippet(id);
+							if (!snippet) return;
+							const cur = (function(){ try { return JSON.parse(adapter.getValue()||'[]'); } catch(_) { return []; } })();
+							const next = cur.concat(snippet);
+							if (typeof builderHost.__sbSetSteps === 'function') {
+								builderHost.__sbSetSteps(next);
+							} else {
+								adapter.setValue(JSON.stringify(next, null, 2));
+							}
+							snippetSelect.value = '';
+						});
+					}
+		});
+	}
+
+	// Upgrade any textarea.unit-tests-editor into CodeMirror with Unit Test Builder attached
+	function initUnitJsonEditors() {
+		const areas = document.querySelectorAll('textarea.unit-tests-editor');
+		areas.forEach((ta) => {
+			if (ta.dataset.cmInitialized) return;
+			ta.dataset.cmInitialized = '1';
+
+			const wrapper = document.createElement('div');
+			wrapper.className = 'json-editor-container';
+			ta.parentNode.insertBefore(wrapper, ta);
+
+			const builderHost = document.createElement('div');
+			builderHost.className = 'mb-2';
+			wrapper.appendChild(builderHost);
+
+			const toolbar = document.createElement('div');
+			toolbar.className = 'd-flex justify-content-end gap-2 mb-2';
+			const toggleBtn = document.createElement('button');
+			toggleBtn.type = 'button';
+			toggleBtn.className = 'btn btn-sm btn-outline-secondary';
+			toggleBtn.textContent = 'Basculer en mode JSON avancé';
+			const snippetSelect = document.createElement('select');
+			snippetSelect.className = 'form-select form-select-sm w-auto';
+			snippetSelect.innerHTML = [
+				'<option value="" selected>— Snippet —</option>',
+				'<option value="get200">GET / -> 200</option>',
+				'<option value="postJson201">POST JSON -> 201</option>'
+			].join('');
+			const snippetBtn = document.createElement('button');
+			snippetBtn.type = 'button';
+			snippetBtn.className = 'btn btn-sm btn-outline-primary';
+			snippetBtn.textContent = 'Insérer';
+			toolbar.appendChild(snippetSelect);
+			toolbar.appendChild(snippetBtn);
+			toolbar.appendChild(toggleBtn);
+			wrapper.appendChild(toolbar);
+			wrapper.appendChild(ta);
+
+			function buildSnippet(id) {
+				switch(id) {
+					case 'get200':
+						return [{ name: 'GET / returns 200', method: 'GET', url: '/', assert: { status: 200 } }];
+					case 'postJson201':
+						return [{ name: 'POST /api/items returns 201', method: 'POST', url: '/api/items', headers: { 'Content-Type': 'application/json' }, body: { name: 'Item' }, assert: { status: 201 } }];
+					default:
+						return null;
+				}
+			}
+
+			if (window.CodeMirror) {
+				const editor = window.CodeMirror.fromTextArea(ta, {
+					mode: { name: 'javascript', json: true },
+					lineNumbers: true,
+					matchBrackets: true,
+					autoCloseBrackets: true,
+					gutters: ['CodeMirror-lint-markers'],
+					lint: true,
+					theme: (document.documentElement.getAttribute('data-bs-theme') === 'dark') ? 'dracula' : 'default',
+				});
+				editor.setSize(null, 380);
+				window.__cmEditors = window.__cmEditors || [];
+				window.__cmEditors.push(editor);
+				const cmWrap = editor.getWrapperElement();
+				attachUnitTestBuilder(builderHost, editor, ta);
+				const MODE_KEY = 'ub-mode:' + (ta.id || ta.name || location.pathname);
+				function showBuilder() { builderHost.style.display=''; cmWrap.style.display='none'; toggleBtn.textContent='Basculer en mode JSON avancé'; try { localStorage.setItem(MODE_KEY, 'builder'); } catch(_){} }
+				function showJson() { builderHost.style.display='none'; cmWrap.style.display=''; try { editor.refresh && editor.refresh(); } catch(_){} toggleBtn.textContent='Revenir au constructeur visuel'; try { localStorage.setItem(MODE_KEY, 'json'); } catch(_){} }
+				let initialMode = 'builder'; try { initialMode = localStorage.getItem(MODE_KEY) || 'builder'; } catch(_){ }
+				if (initialMode === 'json') { showJson(); } else { showBuilder(); }
+				toggleBtn.addEventListener('click', () => {
+					const isBuilderVisible = builderHost.style.display !== 'none';
+					if (isBuilderVisible) showJson(); else {
+						try { JSON.parse(editor.getValue()||'[]'); } catch(e){ if(!confirm('Le JSON n\'est pas valide. Revenir quand même au constructeur ?')) return; }
+						showBuilder();
+					}
+				});
+
+				snippetBtn.addEventListener('click', () => {
+					const id = snippetSelect.value; if (!id) return;
+					const sn = buildSnippet(id); if (!sn) return;
+					const cur = (function(){ try { return JSON.parse(editor.getValue()||'[]'); } catch(_) { return []; } })();
+					const next = cur.concat(sn);
+					if (typeof builderHost.__ubSetTests === 'function') builderHost.__ubSetTests(next); else editor.setValue(JSON.stringify(next, null, 2));
+					snippetSelect.value = '';
+				});
+
+				const form = ta.closest('form');
+				if (form) {
+					form.addEventListener('submit', (e) => {
+						ta.value = editor.getValue();
+						try { JSON.parse(ta.value); } catch(err) { e.preventDefault(); alert('Veuillez corriger le JSON avant de soumettre : ' + err.message); }
+					});
+				}
+
+				try { const v = ta.value||''; if (v.trim()) editor.setValue(JSON.stringify(JSON.parse(v), null, 2)); } catch(_) {}
+			} else {
+				const adapter = { getValue: () => ta.value, setValue: (v) => { ta.value = v; } };
+				attachUnitTestBuilder(builderHost, adapter, ta);
+				snippetBtn.addEventListener('click', () => {
+					const id = snippetSelect.value; if(!id) return; const sn = buildSnippet(id); if (!sn) return;
+					const cur = (function(){ try { return JSON.parse(adapter.getValue()||'[]'); } catch(_) { return []; } })();
+					const next = cur.concat(sn);
+					if (typeof builderHost.__ubSetTests === 'function') builderHost.__ubSetTests(next); else adapter.setValue(JSON.stringify(next, null, 2));
+					snippetSelect.value='';
+				});
+			}
+		});
+	}
+
+	document.addEventListener('DOMContentLoaded', () => { initJsonEditors(); initUnitJsonEditors(); });
+})();
+
+console.log('Functional Tester app.js loaded with JSON editor enhancements');
+
+// ----------------------
+// Visual Step Builder UI
+// ----------------------
+function attachStepBuilder(host, editor, textarea) {
+	// Utilities
+	function getSteps() {
+		try { return JSON.parse(editor.getValue() || '[]'); } catch (_) { return []; }
+	}
+	function setSteps(steps) {
+		editor.setValue(JSON.stringify(steps, null, 2));
+		renderList();
+	}
+	let editIndex = null;
+
+	// Create controls
+	const card = document.createElement('div');
+	card.className = 'card';
+	const body = document.createElement('div');
+	body.className = 'card-body';
+	const title = document.createElement('h6');
+	title.className = 'card-title mb-3';
+	title.textContent = 'Constructeur d\'étapes (no-code)';
+
+	const row = document.createElement('div');
+	row.className = 'row g-2 align-items-end';
+
+	// Action select
+		const colAction = document.createElement('div');
+	colAction.className = 'col-12 col-md-3';
+	colAction.innerHTML = [
+		'<label class="form-label">Action</label>',
+		'<select class="form-select form-select-sm" id="sb-action">',
+		'  <option value="goto">Aller à une URL</option>',
+		'  <option value="fill">Remplir un champ</option>',
+		'  <option value="click">Cliquer</option>',
+		'  <option value="hover">Survoler</option>',
+		'  <option value="select">Sélectionner (liste)</option>',
+		'  <option value="wait">Attendre (millisecondes)</option>',
+		'  <option value="waitFor">Attendre un sélecteur</option>',
+		'  <option value="scroll">Faire défiler vers sélecteur</option>',
+		'  <option value="press">Appuyer sur une touche</option>',
+		'  <option value="expectText">Vérifier un texte</option>',
+		'  <option value="expectUrl">Vérifier l\'URL contient</option>',
+		'  <option value="expectTitle">Vérifier le titre contient</option>',
+		'  <option value="screenshot">Capturer une image</option>',
+		'  <option value="viewport">Définir le viewport</option>',
+					'  <option value="userAgent">Définir le User-Agent</option>',
+					'  <option value="raw">Étape personnalisée (JSON)</option>',
+		'</select>'
+	].join('');
+
+	// Params columns
+	const colUrl = document.createElement('div');
+	colUrl.className = 'col-12 col-md-3 sb-field sb-field-url';
+	colUrl.innerHTML = '<label class="form-label">URL</label><input type="url" class="form-control form-control-sm" id="sb-url" placeholder="https://exemple.com">';
+
+	const colSelector = document.createElement('div');
+	colSelector.className = 'col-12 col-md-3 sb-field sb-field-selector';
+	colSelector.innerHTML = '<label class="form-label">Sélecteur</label><input type="text" class="form-control form-control-sm" id="sb-selector" placeholder="#id, .classe, [name=...]">';
+
+	const colValue = document.createElement('div');
+	colValue.className = 'col-12 col-md-3 sb-field sb-field-value';
+	colValue.innerHTML = '<label class="form-label">Valeur</label><input type="text" class="form-control form-control-sm" id="sb-value" placeholder="texte à saisir">';
+
+	const colText = document.createElement('div');
+	colText.className = 'col-12 col-md-3 sb-field sb-field-text';
+	colText.innerHTML = '<label class="form-label">Texte attendu</label><input type="text" class="form-control form-control-sm" id="sb-text" placeholder="texte à vérifier">';
+
+	// Additional fields
+	const colMs = document.createElement('div');
+	colMs.className = 'col-6 col-md-3 sb-field sb-field-ms';
+	colMs.innerHTML = '<label class="form-label">Millisecondes</label><input type="number" min="0" class="form-control form-control-sm" id="sb-ms" placeholder="ex: 1000">';
+
+	const colContains = document.createElement('div');
+	colContains.className = 'col-12 col-md-3 sb-field sb-field-contains';
+	colContains.innerHTML = '<label class="form-label">Contient</label><input type="text" class="form-control form-control-sm" id="sb-contains" placeholder="fragment">';
+
+	const colKey = document.createElement('div');
+	colKey.className = 'col-6 col-md-3 sb-field sb-field-key';
+	colKey.innerHTML = '<label class="form-label">Touche</label><input type="text" class="form-control form-control-sm" id="sb-key" placeholder="Enter, Tab, ArrowDown...">';
+
+	const colWidth = document.createElement('div');
+	colWidth.className = 'col-6 col-md-2 sb-field sb-field-width';
+	colWidth.innerHTML = '<label class="form-label">Largeur</label><input type="number" min="320" class="form-control form-control-sm" id="sb-width" placeholder="1280">';
+
+	const colHeight = document.createElement('div');
+	colHeight.className = 'col-6 col-md-2 sb-field sb-field-height';
+	colHeight.innerHTML = '<label class="form-label">Hauteur</label><input type="number" min="480" class="form-control form-control-sm" id="sb-height" placeholder="800">';
+
+	const colUA = document.createElement('div');
+	colUA.className = 'col-12 col-md-6 sb-field sb-field-ua';
+	colUA.innerHTML = '<label class="form-label">User-Agent</label><input type="text" class="form-control form-control-sm" id="sb-ua" placeholder="Mozilla/5.0 ...">';
+
+	// Raw JSON step
+	const colRaw = document.createElement('div');
+	colRaw.className = 'col-12 sb-field sb-field-raw';
+	colRaw.innerHTML = '<label class="form-label">Objet JSON de l\'étape</label><textarea class="form-control form-control-sm" id="sb-raw" rows="4" placeholder="{ \"action\": \"custom\", ... }"></textarea>';
+
+	// Buttons
+	const colBtns = document.createElement('div');
+	colBtns.className = 'col-12 col-md-12 d-flex gap-2';
+		colBtns.innerHTML = [
+			'<button type="button" class="btn btn-sm btn-primary" id="sb-add">Ajouter l\'étape</button>',
+			'<button type="button" class="btn btn-sm btn-success d-none" id="sb-save">Mettre à jour</button>',
+		'<button type="button" class="btn btn-sm btn-outline-secondary" id="sb-clear">Vider</button>',
+		'<button type="button" class="btn btn-sm btn-outline-primary" id="sb-example">Exemple basique</button>',
+		'<button type="button" class="btn btn-sm btn-outline-success" id="sb-test">Tester</button>'
+	].join(' ');
+
+	row.append(colAction, colUrl, colSelector, colValue, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw, colBtns);
+
+	const list = document.createElement('ul');
+	list.className = 'list-group mt-3';
+	list.id = 'sb-list';
+
+	body.append(title, row, list);
+	card.appendChild(body);
+	host.appendChild(card);
+
+	const selAction = card.querySelector('#sb-action');
+	const inpUrl = card.querySelector('#sb-url');
+	const inpSel = card.querySelector('#sb-selector');
+	const inpVal = card.querySelector('#sb-value');
+	const inpText = card.querySelector('#sb-text');
+	const inpMs = () => document.getElementById('sb-ms');
+	const inpContains = () => document.getElementById('sb-contains');
+	const inpKey = () => document.getElementById('sb-key');
+	const inpWidth = () => document.getElementById('sb-width');
+	const inpHeight = () => document.getElementById('sb-height');
+	const inpUA = () => document.getElementById('sb-ua');
+
+	// Help texts under fields (shown on focus)
+	function makeHelp(text) { const d = document.createElement('div'); d.className = 'form-text d-none'; d.textContent = text; return d; }
+	function attachHelp(input, help) { if (!input || !help) return; input.addEventListener('focus', () => help.classList.remove('d-none')); input.addEventListener('blur', () => help.classList.add('d-none')); }
+
+	const helpUrl = makeHelp("Adresse complète de la page à ouvrir (ex: https://exemple.com)");
+	inpUrl && inpUrl.insertAdjacentElement('afterend', helpUrl);
+	attachHelp(inpUrl, helpUrl);
+
+	const helpSel = makeHelp("Sélecteur CSS de l'élément cible (ex: #id, .classe, [name=email])");
+	inpSel && inpSel.insertAdjacentElement('afterend', helpSel);
+	attachHelp(inpSel, helpSel);
+
+	const helpVal = makeHelp("Texte ou valeur à saisir (ex: john@doe.com)");
+	inpVal && inpVal.insertAdjacentElement('afterend', helpVal);
+	attachHelp(inpVal, helpVal);
+
+	const helpText = makeHelp("Fragment de texte attendu pour la vérification");
+	inpText && inpText.insertAdjacentElement('afterend', helpText);
+	attachHelp(inpText, helpText);
+
+	const msEl = inpMs(); if (msEl) { const h = makeHelp("Durée d'attente en millisecondes (1000 = 1 seconde)"); msEl.insertAdjacentElement('afterend', h); attachHelp(msEl, h); }
+	const containsEl = inpContains(); if (containsEl) { const h = makeHelp("Fragment devant être présent dans l'URL courante"); containsEl.insertAdjacentElement('afterend', h); attachHelp(containsEl, h); }
+	const keyEl = inpKey(); if (keyEl) { const h = makeHelp("Nom de la touche à simuler (ex: Enter, Tab, ArrowDown)"); keyEl.insertAdjacentElement('afterend', h); attachHelp(keyEl, h); }
+	const widthEl = inpWidth(); if (widthEl) { const h = makeHelp("Largeur du viewport en pixels"); widthEl.insertAdjacentElement('afterend', h); attachHelp(widthEl, h); }
+	const heightEl = inpHeight(); if (heightEl) { const h = makeHelp("Hauteur du viewport en pixels"); heightEl.insertAdjacentElement('afterend', h); attachHelp(heightEl, h); }
+	const uaEl = inpUA(); if (uaEl) { const h = makeHelp("Chaîne User-Agent envoyée au site"); uaEl.insertAdjacentElement('afterend', h); attachHelp(uaEl, h); }
+
+	// Permanent help text for the action select
+	function getActionHelp(a) {
+		switch (a) {
+			case 'goto': return "Ouvre l'URL fournie et attend le chargement de la page.";
+			case 'fill': return "Saisit une valeur dans le champ ciblé par un sélecteur CSS.";
+			case 'click': return "Clique sur l'élément ciblé; attend brièvement l'activité réseau.";
+			case 'hover': return "Survole l'élément ciblé (ex: pour faire apparaître un menu).";
+			case 'select': return "Choisit une option dans une liste déroulante.";
+			case 'wait': return "Met en pause l'exécution pendant X millisecondes.";
+			case 'waitFor': return "Attend l'apparition d'un élément correspondant au sélecteur.";
+			case 'scroll': return "Fait défiler la page jusqu’à l’élément ciblé.";
+			case 'press': return "Simule l'appui d'une touche clavier (ex: Enter).";
+			case 'expectText': return "Vérifie qu'un élément contient un texte donné.";
+			case 'expectUrl': return "Vérifie que l'URL courante contient un fragment texte.";
+			case 'expectTitle': return "Vérifie que le titre de la page contient un fragment texte.";
+			case 'screenshot': return "Capture une image de la page à cet instant.";
+			case 'viewport': return "Définit la taille de la fenêtre (utile pour le responsive).";
+			case 'userAgent': return "Change le User-Agent envoyé aux sites (détection mobile/bot).";
+			case 'raw': return "Définissez manuellement une étape au format JSON (avancé).";
+			default: return "Sélectionnez une action à ajouter à votre scénario.";
+		}
+	}
+	const helpAction = document.createElement('div');
+	helpAction.className = 'form-text mt-1';
+	const setActionHelp = () => { helpAction.textContent = getActionHelp(selAction.value); };
+	selAction.insertAdjacentElement('afterend', helpAction);
+	setActionHelp();
+
+	function updateVisibleFields() {
+		const a = selAction.value;
+		// reset all
+		[colUrl, colSelector, colValue, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw].forEach(c => c.style.display = 'none');
+		if (a === 'goto') colUrl.style.display = '';
+		if (a === 'fill') { colSelector.style.display=''; colValue.style.display=''; }
+		if (a === 'click' || a === 'hover' || a === 'scroll') { colSelector.style.display=''; }
+		if (a === 'select') { colSelector.style.display=''; colValue.style.display=''; }
+		if (a === 'wait') { colMs.style.display=''; }
+		if (a === 'waitFor') { colSelector.style.display=''; colMs.style.display=''; }
+		if (a === 'press') { colKey.style.display=''; colSelector.style.display=''; }
+		if (a === 'expectText') { colSelector.style.display=''; colText.style.display=''; }
+		if (a === 'expectUrl') { colContains.style.display=''; }
+		if (a === 'expectTitle') { colText.style.display=''; }
+		if (a === 'viewport') { colWidth.style.display=''; colHeight.style.display=''; }
+		if (a === 'userAgent') { colUA.style.display=''; }
+		if (a === 'raw') { colRaw.style.display=''; }
+		setActionHelp();
+	}
+	selAction.addEventListener('change', updateVisibleFields);
+	updateVisibleFields();
+
+	// Actions
+		function buildStepFromFields() {
+		const a = selAction.value;
+		const step = { action: a };
+		if (a === 'goto') {
+			if (!inpUrl.value) { alert('Veuillez saisir une URL'); return; }
+			step.url = inpUrl.value;
+		} else if (a === 'fill') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+			step.value = inpVal.value || '';
+		} else if (a === 'click') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+		} else if (a === 'hover') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+		} else if (a === 'select') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+			step.value = inpVal.value || '';
+		} else if (a === 'wait') {
+			const ms = parseInt((document.getElementById('sb-ms').value||'0'), 10);
+			if (!ms || ms < 0) { alert('Veuillez saisir un nombre de millisecondes'); return; }
+			step.ms = ms;
+		} else if (a === 'waitFor') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+			const ms = parseInt((document.getElementById('sb-ms').value||'0'), 10);
+			if (ms > 0) step.timeout = ms;
+		} else if (a === 'scroll') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+		} else if (a === 'press') {
+			const key = (document.getElementById('sb-key').value||'').trim();
+			if (!key) { alert('Veuillez saisir une touche (ex: Enter)'); return; }
+			step.key = key; if (inpSel.value) step.selector = inpSel.value;
+		} else if (a === 'expectText') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+			step.text = inpText.value || '';
+		} else if (a === 'expectUrl') {
+			const c = (document.getElementById('sb-contains').value||'').trim();
+			if (!c) { alert("Veuillez saisir un fragment d'URL"); return; }
+			step.contains = c;
+		} else if (a === 'expectTitle') {
+			const t = (inpText.value||'').trim();
+			if (!t) { alert('Veuillez saisir un fragment de titre'); return; }
+			step.text = t;
+		} else if (a === 'screenshot') {
+			// nothing to configure
+		} else if (a === 'viewport') {
+			const w = parseInt((document.getElementById('sb-width').value||'1280'), 10);
+			const h = parseInt((document.getElementById('sb-height').value||'800'), 10);
+			step.width = w; step.height = h;
+		} else if (a === 'userAgent') {
+			const ua = (document.getElementById('sb-ua').value||'').trim();
+			if (!ua) { alert('Veuillez saisir un User-Agent'); return; }
+			step.ua = ua;
+		} else if (a === 'raw') {
+			const raw = (document.getElementById('sb-raw').value||'').trim();
+			if (!raw) { alert('Veuillez saisir un objet JSON'); return; }
+			try {
+				const obj = JSON.parse(raw);
+				if (typeof obj !== 'object' || Array.isArray(obj)) throw new Error('L\'étape doit être un objet JSON');
+				return obj; // bypass default 'step' wrapper
+			} catch (e) {
+				alert('JSON invalide: ' + e.message);
+				return;
+			}
+		}
+			return step;
+		}
+		function resetFields() {
+			inpUrl.value = ''; inpSel.value=''; inpVal.value=''; inpText.value='';
+		}
+		const btnAdd = card.querySelector('#sb-add');
+		const btnSave = card.querySelector('#sb-save');
+		btnAdd.addEventListener('click', () => {
+			const step = buildStepFromFields();
+			if (!step) return;
+			const steps = getSteps();
+			steps.push(step);
+			setSteps(steps);
+			resetFields();
+		});
+		btnSave.addEventListener('click', () => {
+			const step = buildStepFromFields();
+			if (!step) return;
+			const steps = getSteps();
+			if (editIndex === null || editIndex < 0 || editIndex >= steps.length) return;
+			steps[editIndex] = step;
+			setSteps(steps);
+			editIndex = null;
+			btnSave.classList.add('d-none');
+			btnAdd.classList.remove('d-none');
+			resetFields();
+		});
+
+	card.querySelector('#sb-clear').addEventListener('click', () => {
+		if (confirm('Vider toutes les étapes ?')) setSteps([]);
+	});
+
+	card.querySelector('#sb-example').addEventListener('click', () => {
+		const sample = [
+			{ action: 'goto', url: 'https://example.org' },
+			{ action: 'expectText', selector: 'h1', text: 'Example Domain' }
+		];
+		setSteps(sample);
+	});
+
+	card.querySelector('#sb-test').addEventListener('click', async () => {
+		const steps = getSteps();
+		try {
+			const resp = await fetch('/api/run', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ steps })
+			});
+			const data = await resp.json();
+			const ok = !!data.success;
+			const msg = ok ? 'Test réussi ✅' : 'Échec du test ❌';
+			alert(msg + (data.errors && data.errors.length ? ('\n' + data.errors.join('\n')) : ''));
+		} catch (e) {
+			alert('Erreur lors du test: ' + e.message);
+		}
+	});
+
+	function renderList() {
+		const steps = getSteps();
+		list.innerHTML = '';
+			steps.forEach((s, idx) => {
+			const li = document.createElement('li');
+			li.className = 'list-group-item d-flex justify-content-between align-items-center';
+			const summary = summarizeStep(s);
+				li.innerHTML = '<span>' + summary + '</span>' +
+					'<span class="btn-group btn-group-sm">' +
+					'<button type="button" class="btn btn-outline-primary" data-act="edit">Éditer</button>' +
+				'<button type="button" class="btn btn-outline-secondary" data-act="up">↑</button>' +
+				'<button type="button" class="btn btn-outline-secondary" data-act="down">↓</button>' +
+				'<button type="button" class="btn btn-outline-danger" data-act="del">Suppr.</button>' +
+				'</span>';
+				li.querySelector('[data-act="edit"]').addEventListener('click', () => edit(idx));
+			li.querySelector('[data-act="up"]').addEventListener('click', () => move(idx, -1));
+			li.querySelector('[data-act="down"]').addEventListener('click', () => move(idx, +1));
+			li.querySelector('[data-act="del"]').addEventListener('click', () => del(idx));
+			list.appendChild(li);
+		});
+	}
+	function summarizeStep(s) {
+		switch (s.action) {
+			case 'goto': return 'Aller à: ' + (s.url || '');
+			case 'fill': return 'Remplir ' + (s.selector || '') + ' avec "' + (s.value || '') + '"';
+			case 'click': return 'Cliquer ' + (s.selector || '');
+			case 'hover': return 'Survoler ' + (s.selector || '');
+			case 'select': return 'Sélectionner ' + (s.selector || '') + ' valeur "' + (s.value || '') + '"';
+			case 'wait': return 'Attendre ' + (s.ms || s.timeout || 0) + ' ms';
+			case 'waitFor': return 'Attendre le sélecteur ' + (s.selector || '') + (s.timeout ? ' ('+s.timeout+'ms)' : '');
+			case 'scroll': return 'Faire défiler vers ' + (s.selector || '');
+			case 'press': return 'Appuyer sur la touche ' + (s.key || '');
+			case 'expectText': return 'Vérifier ' + (s.selector || '') + ' contient "' + (s.text || '') + '"';
+			case 'expectUrl': return 'Vérifier URL contient "' + (s.contains || s.urlContains || '') + '"';
+			case 'expectTitle': return 'Vérifier le titre contient "' + (s.text || '') + '"';
+			case 'screenshot': return 'Capturer une image';
+			case 'viewport': return 'Viewport ' + (s.width || 0) + 'x' + (s.height || 0);
+			case 'userAgent': return 'User-Agent personnalisé';
+			default:
+				// If user provided a raw step without known action
+				if (s && typeof s === 'object' && !s.action) return 'Étape personnalisée (JSON)';
+				return JSON.stringify(s);
+		}
+	}
+	function move(i, delta) {
+		const steps = getSteps();
+		const j = i + delta;
+		if (j < 0 || j >= steps.length) return;
+		const tmp = steps[i];
+		steps[i] = steps[j];
+		steps[j] = tmp;
+		setSteps(steps);
+	}
+	function del(i) {
+		const steps = getSteps();
+		steps.splice(i, 1);
+		setSteps(steps);
+	}
+		function edit(i) {
+			const steps = getSteps();
+			const s = steps[i];
+			if (!s) return;
+			selAction.value = s.action || 'goto';
+			updateVisibleFields();
+			inpUrl.value = s.url || '';
+			inpSel.value = s.selector || '';
+			inpVal.value = s.value || '';
+			inpText.value = s.text || '';
+			editIndex = i;
+			btnAdd.classList.add('d-none');
+			btnSave.classList.remove('d-none');
+		}
+
+	// Expose minimal API to outer context (snippets, etc.)
+	host.__sbSetSteps = setSteps;
+	host.__sbRenderList = renderList;
+
+	// Initial render from existing JSON
+	renderList();
+}
+
+// ------------------------------
+// Unit Test Builder (HTTP no-code)
+// ------------------------------
+function attachUnitTestBuilder(host, editor, textarea) {
+	function getTests() { try { return JSON.parse(editor.getValue()||'[]'); } catch(_) { return []; } }
+	function setTests(arr) { editor.setValue(JSON.stringify(arr, null, 2)); renderList(); }
+	let editIndex = null;
+
+	const card = document.createElement('div');
+	card.className = 'card';
+	const body = document.createElement('div');
+	body.className = 'card-body';
+	const title = document.createElement('h6');
+	title.className = 'card-title mb-3';
+	title.textContent = 'Constructeur de tests HTTP (no-code)';
+
+	const row = document.createElement('div');
+	row.className = 'row g-2 align-items-end';
+
+	const colName = document.createElement('div');
+	colName.className = 'col-12 col-md-4';
+	colName.innerHTML = '<label class="form-label">Nom</label><input type="text" class="form-control form-control-sm" id="ub-name" placeholder="Ex: GET / 200">';
+
+	const colMethod = document.createElement('div');
+	colMethod.className = 'col-6 col-md-2';
+	colMethod.innerHTML = '<label class="form-label">Méthode</label><select class="form-select form-select-sm" id="ub-method"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option></select>';
+
+	const colUrl = document.createElement('div');
+	colUrl.className = 'col-12 col-md-6';
+	colUrl.innerHTML = '<label class="form-label">URL</label><input type="text" class="form-control form-control-sm" id="ub-url" placeholder="/api/... ou https://...">';
+
+	const colHeaders = document.createElement('div');
+	colHeaders.className = 'col-12 col-md-6';
+	colHeaders.innerHTML = '<label class="form-label">En-têtes (JSON)</label><textarea class="form-control form-control-sm" id="ub-headers" rows="3" placeholder="{\n  \"Accept\": \"application/json\"\n}"></textarea>';
+
+	const colBody = document.createElement('div');
+	colBody.className = 'col-12 col-md-6';
+	colBody.innerHTML = '<label class="form-label">Corps</label><textarea class="form-control form-control-sm" id="ub-body" rows="3" placeholder="Texte ou JSON"></textarea><div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="ub-body-json"><label for="ub-body-json" class="form-check-label">Corps en JSON</label></div>';
+
+	const colAssertStatus = document.createElement('div');
+	colAssertStatus.className = 'col-6 col-md-2';
+	colAssertStatus.innerHTML = '<label class="form-label">Statut attendu</label><input type="number" min="100" max="599" class="form-control form-control-sm" id="ub-astatus" placeholder="200">';
+
+	const colAssertContains = document.createElement('div');
+	colAssertContains.className = 'col-12 col-md-4';
+	colAssertContains.innerHTML = '<label class="form-label">Contient (corps)</label><input type="text" class="form-control form-control-sm" id="ub-acontains" placeholder="fragment attendu dans la réponse">';
+
+	const colAssertJsonPath = document.createElement('div');
+	colAssertJsonPath.className = 'col-12 col-md-3';
+	colAssertJsonPath.innerHTML = '<label class="form-label">JSON path</label><input type="text" class="form-control form-control-sm" id="ub-ajpath" placeholder="a.b.0.c">';
+
+	const colAssertJsonEq = document.createElement('div');
+	colAssertJsonEq.className = 'col-12 col-md-3';
+	colAssertJsonEq.innerHTML = '<label class="form-label">Valeur attendue</label><input type="text" class="form-control form-control-sm" id="ub-ajeq" placeholder="valeur">';
+
+	const colBtns = document.createElement('div');
+	colBtns.className = 'col-12 d-flex gap-2';
+	colBtns.innerHTML = '<button type="button" class="btn btn-sm btn-primary" id="ub-add">Ajouter le test</button> <button type="button" class="btn btn-sm btn-success d-none" id="ub-save">Mettre à jour</button> <button type="button" class="btn btn-sm btn-outline-secondary" id="ub-clear">Vider</button> <button type="button" class="btn btn-sm btn-outline-primary" id="ub-example">Exemple basique</button>';
+
+	row.append(colName, colMethod, colUrl, colHeaders, colBody, colAssertStatus, colAssertContains, colAssertJsonPath, colAssertJsonEq, colBtns);
+
+	const list = document.createElement('ul');
+	list.className = 'list-group mt-3';
+	list.id = 'ub-list';
+
+	body.append(title, row, list);
+	card.appendChild(body);
+	host.appendChild(card);
+
+	const inpName = () => document.getElementById('ub-name');
+	const selMethod = () => document.getElementById('ub-method');
+	const inpUrl = () => document.getElementById('ub-url');
+	const taHeaders = () => document.getElementById('ub-headers');
+	const taBody = () => document.getElementById('ub-body');
+	const cbBodyJson = () => document.getElementById('ub-body-json');
+	const inStatus = () => document.getElementById('ub-astatus');
+	const inContains = () => document.getElementById('ub-acontains');
+	const inJPath = () => document.getElementById('ub-ajpath');
+	const inJEq = () => document.getElementById('ub-ajeq');
+
+	function parseHeaders() {
+		try { const raw = (taHeaders().value||'').trim(); return raw ? JSON.parse(raw) : {}; } catch(e) { alert('En-têtes JSON invalides: ' + e.message); return null; }
+	}
+
+	function buildCaseFromFields() {
+		const name = (inpName().value||'').trim();
+		const method = (selMethod().value||'GET').toUpperCase();
+		const url = (inpUrl().value||'').trim();
+		if (!url) { alert('Veuillez saisir une URL'); return; }
+		const headers = parseHeaders(); if (headers === null) return;
+		const bodyText = (taBody().value||'').trim();
+		const bodyJson = cbBodyJson().checked;
+		const aStatus = parseInt(inStatus().value||'', 10);
+		const aContains = (inContains().value||'').trim();
+		const aJPath = (inJPath().value||'').trim();
+		const aJEq = (inJEq().value||'').trim();
+		const test = { name: name || (method + ' ' + url), method, url };
+		if (headers && Object.keys(headers).length) test.headers = headers;
+		if (bodyText) test.body = bodyJson ? (function(){ try { return JSON.parse(bodyText); } catch(e) { alert('Corps JSON invalide: ' + e.message); throw e; } })() : bodyText;
+		const asrt = {};
+		if (!isNaN(aStatus)) asrt.status = aStatus;
+		if (aContains) asrt.contains = aContains;
+		if (aJPath) asrt.json = { path: aJPath, equals: aJEq };
+		if (Object.keys(asrt).length) test.assert = asrt;
+		return test;
+	}
+
+	function summarizeCase(t) {
+		let s = (t.method||'GET') + ' ' + (t.url||'');
+		if (t.assert) {
+			const parts = [];
+			if (typeof t.assert.status !== 'undefined') parts.push('status:' + t.assert.status);
+			if (t.assert.contains) parts.push("contient:'" + t.assert.contains + "'");
+			if (t.assert.json && t.assert.json.path) parts.push('json ' + t.assert.json.path + ' == ' + (t.assert.json.equals ?? ''));
+			if (parts.length) s += ' — ' + parts.join(', ');
+		}
+		return s;
+	}
+
+	function renderList() {
+		const tests = getTests();
+		list.innerHTML = '';
+		tests.forEach((t, idx) => {
+			const li = document.createElement('li');
+			li.className = 'list-group-item d-flex justify-content-between align-items-center';
+			li.innerHTML = '<span>' + summarizeCase(t) + '</span>' +
+				'<span class="btn-group btn-group-sm">' +
+				'<button type="button" class="btn btn-outline-primary" data-act="edit">Éditer</button>' +
+				'<button type="button" class="btn btn-outline-secondary" data-act="up">↑</button>' +
+				'<button type="button" class="btn btn-outline-secondary" data-act="down">↓</button>' +
+				'<button type="button" class="btn btn-outline-danger" data-act="del">Suppr.</button>' +
+				'</span>';
+			li.querySelector('[data-act="edit"]').addEventListener('click', () => edit(idx));
+			li.querySelector('[data-act="up"]').addEventListener('click', () => move(idx, -1));
+			li.querySelector('[data-act="down"]').addEventListener('click', () => move(idx, +1));
+			li.querySelector('[data-act="del"]').addEventListener('click', () => del(idx));
+			list.appendChild(li);
+		});
+	}
+
+	function resetFields() {
+		inpName().value = ''; selMethod().value = 'GET'; inpUrl().value=''; taHeaders().value=''; taBody().value=''; cbBodyJson().checked=false; inStatus().value=''; inContains().value=''; inJPath().value=''; inJEq().value='';
+	}
+
+	function move(i, delta) { const tests = getTests(); const j = i+delta; if (j<0 || j>=tests.length) return; const tmp = tests[i]; tests[i]=tests[j]; tests[j]=tmp; setTests(tests); }
+	function del(i) { const tests = getTests(); tests.splice(i,1); setTests(tests); }
+	function edit(i) {
+		const tests = getTests(); const t = tests[i]; if (!t) return;
+		inpName().value = t.name || '';
+		selMethod().value = (t.method||'GET').toUpperCase();
+		inpUrl().value = t.url || '';
+		taHeaders().value = t.headers ? JSON.stringify(t.headers, null, 2) : '';
+		if (typeof t.body === 'string') { taBody().value = t.body; cbBodyJson().checked = false; } else if (typeof t.body !== 'undefined') { taBody().value = JSON.stringify(t.body, null, 2); cbBodyJson().checked = true; } else { taBody().value=''; cbBodyJson().checked=false; }
+		inStatus().value = (t.assert && typeof t.assert.status !== 'undefined') ? t.assert.status : '';
+		inContains().value = (t.assert && t.assert.contains) ? t.assert.contains : '';
+		inJPath().value = (t.assert && t.assert.json && t.assert.json.path) ? t.assert.json.path : '';
+		inJEq().value = (t.assert && t.assert.json) ? (t.assert.json.equals ?? '') : '';
+		editIndex = i;
+		card.querySelector('#ub-add').classList.add('d-none');
+		card.querySelector('#ub-save').classList.remove('d-none');
+	}
+
+	card.querySelector('#ub-add').addEventListener('click', () => {
+		try {
+			const t = buildCaseFromFields(); if (!t) return;
+			const tests = getTests(); tests.push(t); setTests(tests); resetFields();
+		} catch(_){}
+	});
+	card.querySelector('#ub-save').addEventListener('click', () => {
+		try {
+			const t = buildCaseFromFields(); if (!t) return;
+			const tests = getTests(); if (editIndex===null || editIndex<0 || editIndex>=tests.length) return; tests[editIndex] = t; setTests(tests);
+			editIndex = null; card.querySelector('#ub-save').classList.add('d-none'); card.querySelector('#ub-add').classList.remove('d-none'); resetFields();
+		} catch(_){}
+	});
+	card.querySelector('#ub-clear').addEventListener('click', () => { if (confirm('Vider tous les tests ?')) setTests([]); });
+	card.querySelector('#ub-example').addEventListener('click', () => { const sample = [{ name:'GET / 200', method:'GET', url:'/', assert:{ status:200 } }]; setTests(sample); });
+
+	// Expose for snippets
+	host.__ubSetTests = setTests;
+	host.__ubRenderList = renderList;
+
+	renderList();
+}
+
+// Staggered reveal for tables and lists when page loads
+document.addEventListener('DOMContentLoaded', () => {
+	const stagger = (nodes) => {
+		Array.prototype.forEach.call(nodes, (el, i) => {
+			el.classList.add('fade-in-up');
+			el.style.animationDelay = Math.min(i * 60, 600) + 'ms';
+		});
+	};
+	stagger(document.querySelectorAll('table tbody tr'));
+	stagger(document.querySelectorAll('.list-group .list-group-item'));
+});

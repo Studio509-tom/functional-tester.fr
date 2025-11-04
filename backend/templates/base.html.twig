@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Functional Tester{% endblock %}</title>
+  <script>
+    // Apply theme as early as possible to reduce FOUC
+    (function() {
+      try {
+        var stored = localStorage.getItem('theme');
+        var theme = stored ? stored : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-bs-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/css/app.css?v={{ app.debug ? date().timestamp : '' }}" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" integrity="sha512-xCnzvC3Ei0lG3f1yC9y8mDq0xw6pPnqeY7iYEfN5RPTT2Mm3Y0lo0Q1YfI3eTI6E7kX1k70xq2l2Q0tJ6Hf8xw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.css" integrity="sha512-u7m2Vj2P0p7k7S4G3Y8E3d6jS5G7O8nL9S9U1XvVQw8tN2F7m0o0tV7i9rJm2eKfQ6Zf7nE0wVqkAq5gv1qO7Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <style>
+    /* Ensure preformatted blocks adapt to light/dark theme */
+    .themed-pre { background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+
+    /* Subtle page entrance */
+    .fade-in { animation: fadeIn .35s ease-out both; }
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+    /* List/table polish */
+    .table tbody tr { transition: background-color .2s ease; }
+    .table tbody tr:hover { background-color: rgba(108,117,125,.08); }
+    .list-group-item { transition: background-color .2s ease, transform .12s ease; }
+    .list-group-item:hover { background-color: rgba(108,117,125,.08); }
+
+    /* Fancy active in sidebar */
+    .list-group .list-group-item.active {
+      background: linear-gradient(90deg, var(--bs-primary), #6ea8fe);
+      border-color: var(--bs-primary);
+    }
+
+    /* Buttons micro-interactions */
+    .btn { transition: transform .08s ease, box-shadow .15s ease; }
+    .btn:active { transform: translateY(1px); }
+    .btn-loading { position: relative; pointer-events: none; opacity: .85; }
+    .btn-loading .spinner { position: absolute; left: .5rem; top: 50%; transform: translateY(-50%); }
+
+    /* Builder items animation */
+    .fade-in-up { animation: fadeInUp .25s ease-out both; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-0">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ path('dashboard') }}">Functional Tester</a>
+    <div class="ms-auto d-flex align-items-center">
+      <button id="themeToggle" type="button" class="btn btn-sm btn-outline-light" aria-label="Basculer le mode sombre">Mode sombre</button>
+    </div>
+  </div>
+</nav>
+<main class="container-fluid py-3 fade-in">
+  {% set current = app.request.attributes.get('_route') %}
+  <div class="row">
+    <aside class="col-12 col-md-3 col-lg-2 mb-3 mb-md-0">
+      <div class="position-sticky" style="top: 1rem;">
+        <div class="list-group">
+          <a href="{{ path('dashboard') }}" class="list-group-item list-group-item-action {{ current == 'dashboard' ? 'active' }}">Dashboard</a>
+          <a href="{{ path('scenario_index') }}" class="list-group-item list-group-item-action {{ current starts with 'scenario_' ? 'active' }}">Scénarios</a>
+          <a href="{{ path('scenario_new') }}" class="list-group-item list-group-item-action {{ current == 'scenario_new' ? 'active' }}">Nouveau scénario</a>
+          <a href="{{ path('folder_index') }}" class="list-group-item list-group-item-action {{ current starts with 'folder_' ? 'active' }}">Dossiers</a>
+          <a href="{{ path('unit_index') }}" class="list-group-item list-group-item-action {{ current starts with 'unit_' and current != 'unit_new' ? 'active' }}">Tests unitaires</a>
+          <a href="{{ path('unit_new') }}" class="list-group-item list-group-item-action {{ current == 'unit_new' ? 'active' }}">Nouveau test unitaire</a>
+        </div>
+      </div>
+    </aside>
+    <section class="col-12 col-md-9 col-lg-10">
+      {% block body %}{% endblock %}
+    </section>
+  </div>
+  
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js" integrity="sha512-haV9rO+ISS4gzk0wYh0w6b6R9T3rT7Q8mF0C7n0VgXjQg2r9F0mF2sQG1g2cI3J8q0C0cU9C5mrbQ0b8yL9cYw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js" integrity="sha512-WxO8cS8h1n0M1P6o0VQ7g4m9YwH2o6bW7pJ1p0m8n2wJzE1h4f1C9sC0Q2q3V1sQ7cP4gH2o5dXKxk5p2rZClw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js" integrity="sha512-3P6C8G0dQwYxkKZ9X3S0n3d1rV3p1mR3J4T6bT2jY1oU5hD8sQv9T1q2w9G8c2K0zQXw3n7f1p0l2s5vRj5eFA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js" integrity="sha512-6s7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2a3b4c5d6e7f8g9h0i1j2k3l4m5n6o7pA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/lint.min.js" integrity="sha512-3vWzq3Syo2HElKQH0LQ0wR6ZBv6Wg7l3+z8q9B9o5o8hH7jK6g5fF2Y8sN6pR3yTnF7rU5pK0xQn9i8j7YpOeQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsonlint/1.6.0/jsonlint.min.js" integrity="sha512-Q3uS8R0qv3wYyQm3QwP8Y9qVdQZyZ3h5QqV1Y9oV5i1m2n7o8p2q3r4s5t6u7v8w9x0y1z2a3b4c5d6e7f8g9hA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/lint/json-lint.min.js" integrity="sha512-3q9y+evk8gUbuBwOtI4mNdsb/8t1fTZq4t0gC+H0eRz2xk8k6U5YpT6WmZ+q7f9z8Y2h1q0r5s7u8v9w0x1y2A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{# Cache-busting in dev to ensure latest JS loads #}
+<script src="/js/app.js?v={{ app.debug ? date().timestamp : '' }}"></script>
+</body>
+</html>

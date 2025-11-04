@@ -1,0 +1,24 @@
+name: functional-tester
+type: php
+docroot: backend/public
+php_version: "8.2"
+webserver_type: apache-fpm
+router_http_port: "80"
+router_https_port: "443"
+use_dns_when_possible: true
+database:
+  type: mysql
+  version: "8.0"
+nodejs_version: "20"
+webimage_extra_packages: []
+additional_hostnames: []
+additional_fqdns: []
+mutagen_enabled: false
+timezone: Europe/Paris
+composer_version: "2"
+omit_containers: []
+fail_on_hook_fail: false
+host_docker_internal_bridge: true
+use_lets_encrypt: false
+performance_mode: ""
+router: traefik

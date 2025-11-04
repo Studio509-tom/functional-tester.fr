@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+{% block title %}Dashboard - Functional Tester{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Dashboard</h1>
+  <a href="{{ path('scenario_new') }}" class="btn btn-primary">Nouveau scénario</a>
+  </div>
+<div class="row">
+  <div class="col-md-6">
+    <h4>Scénarios</h4>
+    <ul class="list-group">
+      {% for s in scenarios %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span>{{ s.name }}</span>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ path('scenario_show', {id: s.id}) }}">Ouvrir</a>
+        </li>
+      {% else %}
+        <li class="list-group-item">Aucun scénario</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="col-md-6">
+    <h4>Exécutions récentes</h4>
+    <ul class="list-group">
+      {% for e in executions %}
+        <li class="list-group-item">#{{ e.id }} - {{ e.scenario.name }} - <span class="badge text-bg-{{ e.status == 'success' ? 'success' : (e.status == 'failed' ? 'danger' : 'secondary') }}">{{ e.status }}</span></li>
+      {% else %}
+        <li class="list-group-item">Aucune exécution</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

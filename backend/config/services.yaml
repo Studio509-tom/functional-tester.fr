@@ -1,0 +1,27 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # Note: Controllers are discovered by routes.yaml (type: attribute). We skip
+  # service auto-registration for controllers to avoid class scan issues.
+
+  # Register controllers as services so AbstractController has its container set
+  App\Controller\:
+    resource: ../src/Controller/
+    tags: ["controller.service_arguments"]
+
+  # Register Doctrine repositories (ServiceEntityRepository) as services
+  App\Repository\:
+    resource: ../src/Repository/
+    tags: ["doctrine.repository_service"]
+    autowire: true
+
+  App\Service\WorkerClient:
+    arguments:
+      $workerBaseUrl: "%env(WORKER_URL)%"
+
+  # Explicit service registrations (no global src/ scan)
+  App\Service\ScenarioDuplicator: ~
+  App\Service\FolderDuplicator: ~
+  App\Service\UnitTestRunner: ~

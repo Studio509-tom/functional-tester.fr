@@ -1,0 +1,18 @@
+<IfModule mod_negotiation.c>
+    Options -MultiViews
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    Options -MultiViews
+    RewriteEngine On
+
+    # Explicitly set base if app is in a subdirectory; left default here
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteRule ^ index.php [L]
+
+</IfModule>

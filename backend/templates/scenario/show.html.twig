@@ -1,0 +1,41 @@
+{% extends 'base.html.twig' %}
+{% block title %}Scénario {{ scenario.name }}{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>{{ scenario.name }}</h1>
+  <div>
+    <a class="btn btn-outline-secondary" href="{{ path('scenario_edit', {id: scenario.id}) }}">Éditer</a>
+    <form method="post" action="{{ path('scenario_duplicate', {id: scenario.id}) }}" class="d-inline" onsubmit="return confirm('Dupliquer ce scénario ?');">
+      <input type="hidden" name="_token" value="{{ csrf_token('dup_' ~ scenario.id) }}"/>
+      <button class="btn btn-outline-primary">Dupliquer</button>
+    </form>
+    <form method="post" action="{{ path('scenario_delete', {id: scenario.id}) }}" class="d-inline" onsubmit="return confirm('Supprimer ?');">
+      <input type="hidden" name="_token" value="{{ csrf_token('del_' ~ scenario.id) }}"/>
+      <button class="btn btn-outline-danger">Supprimer</button>
+    </form>
+  </div>
+</div>
+{% if scenario.folder %}
+  <p class="text-muted">Dossier: <strong>{{ scenario.folder.name }}</strong></p>
+{% endif %}
+<pre class="themed-pre p-3 border rounded">{{ scenario.stepsJson }}</pre>
+<form method="post" action="{{ path('scenario_run', {id: scenario.id}) }}">
+  <button class="btn btn-success mt-2" id="btn-run">Lancer le test</button>
+  </form>
+<hr/>
+<h3>Dernières exécutions</h3>
+<ul class="list-group">
+  {% for e in executions %}
+    <li class="list-group-item">
+      #{{ e.id }} - Statut: <span class="badge text-bg-{{ e.status == 'success' ? 'success' : (e.status == 'failed' ? 'danger' : 'secondary') }}">{{ e.status }}</span>
+      - <a href="{{ path('execution_show', {id: e.id}) }}" class="text-decoration-none">Rapport</a>
+      {% if e.screenshotPath %}
+        · <a href="{{ path('execution_screenshot', {id: e.id}) }}" target="_blank">Capture</a>
+      {% endif %}
+  {% if e.resultJson %}<details class="mt-2"><summary>Payload brut</summary><pre class="themed-pre p-3 border rounded">{{ e.resultJson }}</pre></details>{% endif %}
+    </li>
+  {% else %}
+    <li class="list-group-item">Aucune exécution</li>
+  {% endfor %}
+</ul>
+{% endblock %}

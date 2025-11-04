@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+{% block title %}Tests unitaires{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Tests unitaires (HTTP)</h1>
+  <a href="{{ path('unit_new') }}" class="btn btn-primary">Nouveau test</a>
+</div>
+<table class="table table-striped">
+  <thead><tr>
+    <th>ID</th>
+    <th>Nom</th>
+    <th>Dossier</th>
+    <th>Créé le</th>
+    <th>Actions</th>
+  </tr></thead>
+    </tr>
+  </thead>
+  <tbody>
+  {% for s in suites %}
+      <td><a href="{{ path('unit_show', {id: s.id}) }}" class="link-caret">{{ s.name }}</a></td>
+      <td>{{ s.folder ? s.folder.name : '-' }}</td>
+      <td>{{ s.id }}</td>
+      <td><a class="link-caret" href="{{ path('unit_show', {id: s.id}) }}">{{ s.name }}</a></td>
+      <td>{{ s.createdAt|date('Y-m-d H:i') }}</td>
+      <td>
+        <a class="btn btn-sm btn-secondary" href="{{ path('unit_show', {id: s.id}) }}"><i class="bi bi-box-arrow-up-right me-1"></i>Ouvrir</a>
+        <a class="btn btn-sm btn-outline-primary" href="{{ path('unit_edit', {id: s.id}) }}"><i class="bi bi-pencil me-1"></i>Éditer</a>
+        <form method="post" action="{{ path('unit_delete', {id: s.id}) }}" class="d-inline" onsubmit="return confirm('Supprimer ce test ?');">
+          <input type="hidden" name="_token" value="{{ csrf_token('del_u_' ~ s.id) }}"/>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Supprimer</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4">Aucun test</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

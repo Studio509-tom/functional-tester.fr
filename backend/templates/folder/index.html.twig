@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+{% block title %}Dossiers{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Dossiers</h1>
+  <a href="{{ path('folder_new') }}" class="btn btn-primary">Nouveau dossier</a>
+</div>
+<table class="table table-striped">
+  <thead>
+		<tr>
+			<th>ID</th>
+			<th>Nom</th>
+			<th>Parent</th>
+			<th>Actions</th>
+		</tr>
+	</thead>
+  <tbody>
+  {% for f in folders %}
+    <tr>
+      <td>{{ f.id }}</td>
+      <td><a class="link-caret" href="{{ path('folder_show', {id: f.id}) }}"><i class="bi bi-folder2-open me-1"></i>{{ f.name }}</a></td>
+      <td>{{ f.parent ? f.parent.name : '-' }}</td>
+      <td>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ path('folder_edit', {id: f.id}) }}"><i class="bi bi-pencil-square me-1"></i>Éditer</a>
+        <form method="post" action="{{ path('folder_duplicate', {id: f.id}) }}" class="d-inline" onsubmit="return confirm('Dupliquer ce dossier et son contenu ?');">
+          <input type="hidden" name="_token" value="{{ csrf_token('dup_folder_' ~ f.id) }}"/>
+          <button class="btn btn-sm btn-outline-primary"><i class="bi bi-files me-1"></i>Dupliquer</button>
+        </form>
+        <form method="post" action="{{ path('folder_delete', {id: f.id}) }}" class="d-inline" onsubmit="return confirm('Supprimer ce dossier ?');">
+          <input type="hidden" name="_token" value="{{ csrf_token('del_folder_' ~ f.id) }}"/>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Supprimer</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4">Aucun dossier</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

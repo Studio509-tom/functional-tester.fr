@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+{% block title %}Éditer scénario{% endblock %}
+{% block body %}
+<h1>Éditer scénario</h1>
+{{ form_start(form) }}
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <div class="mb-1">
+        {{ form_label(form.name, 'Nom du scénario', {'label_attr': {'class': 'form-label'}}) }}
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-type"></i></span>
+          {{ form_widget(form.name, { 'attr': {'class': (form.name.vars.attr.class|default('') ~ ' form-control form-control-lg')|trim, 'placeholder': 'Ex: Connexion client'} }) }}
+        </div>
+        {{ form_errors(form.name) }}
+        <div class="form-text">Un nom clair pour retrouver rapidement ce scénario.</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="mb-1">
+        {{ form_label(form.folder, 'Dossier', {'label_attr': {'class': 'form-label'}}) }}
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-folder2-open"></i></span>
+          {{ form_widget(form.folder, { 'attr': {'class': (form.folder.vars.attr.class|default('') ~ ' form-select')|trim } }) }}
+        </div>
+        {{ form_errors(form.folder) }}
+        <div class="form-text">Organisez vos scénarios par projet (optionnel).</div>
+      </div>
+    </div>
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <h6 class="mt-2">Fiabilité et capture</h6>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="form-check form-switch mb-2">
+        {{ form_widget(form.perStepScreenshot, {'attr': {'class': 'form-check-input', 'role': 'switch', 'id': 'perStepScreenshot'}}) }}
+        <label class="form-check-label" for="perStepScreenshot">{{ form.perStepScreenshot.vars.label }}</label>
+      </div>
+      <div class="form-check form-switch mb-2">
+        {{ form_widget(form.screenshotFullPage, {'attr': {'class': 'form-check-input', 'role': 'switch', 'id': 'screenshotFullPage'}}) }}
+        <label class="form-check-label" for="screenshotFullPage">{{ form.screenshotFullPage.vars.label }}</label>
+      </div>
+      <div class="row g-2">
+        <div class="col-4">{{ form_row(form.retries) }}</div>
+        <div class="col-4">{{ form_row(form.backoffMs) }}</div>
+        <div class="col-4">{{ form_row(form.stepTimeoutMs) }}</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="mb-2">{{ form_row(form.deviceScaleFactor) }}</div>
+      <div class="mb-2">{{ form_row(form.userAgent) }}</div>
+      <div class="form-text">Astuce: 2x donne des PNG plus nets (fichier plus lourd). Laissez User-Agent vide pour la valeur par défaut (Chrome desktop).</div>
+    </div>
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <label class="form-label">Viewport (desktop)</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-display"></i></span>
+        <select class="form-select" id="viewportPreset">
+          <option value="">Choisir un preset…</option>
+          <option value="1366x768">1366 × 768</option>
+          <option value="1920x1080">1920 × 1080</option>
+          <option value="2560x1440">2560 × 1440</option>
+          <option value="3840x2160">3840 × 2160</option>
+        </select>
+      </div>
+      <div class="form-text">Sélectionner un preset remplit largeur/hauteur ci-dessous. Laissez vide pour la valeur par défaut.</div>
+    </div>
+    <div class="col-6 col-md-3">
+      {{ form_label(form.viewportWidth, 'Largeur', {'label_attr': {'class': 'form-label'}}) }}
+      {{ form_widget(form.viewportWidth, { 'attr': {'class': (form.viewportWidth.vars.attr.class|default('') ~ ' form-control')|trim, 'placeholder': 'ex: 1920'} }) }}
+      {{ form_errors(form.viewportWidth) }}
+    </div>
+    <div class="col-6 col-md-3">
+      {{ form_label(form.viewportHeight, 'Hauteur', {'label_attr': {'class': 'form-label'}}) }}
+      {{ form_widget(form.viewportHeight, { 'attr': {'class': (form.viewportHeight.vars.attr.class|default('') ~ ' form-control')|trim, 'placeholder': 'ex: 1080'} }) }}
+      {{ form_errors(form.viewportHeight) }}
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Étapes</label>
+    <div class="form-text mb-2">Utilisez le constructeur visuel. Le JSON est géré automatiquement.</div>
+    {{ form_widget(form.stepsJson, { attr: form.stepsJson.vars.attr|merge({'class': (form.stepsJson.vars.attr.class|default('') ~ ' d-none')|trim }) }) }}
+  </div>
+  <button class="btn btn-primary">Mettre à jour</button>
+{{ form_end(form) }}
+<script>
+  (function(){
+    var sel = document.getElementById('viewportPreset');
+    if (!sel) return;
+    sel.addEventListener('change', function(){
+      var v = sel.value;
+      if (!v) return;
+      var parts = v.split('x');
+      if (parts.length !== 2) return;
+      var w = document.getElementById('{{ form.viewportWidth.vars.id }}');
+      var h = document.getElementById('{{ form.viewportHeight.vars.id }}');
+      if (w) w.value = parts[0];
+      if (h) h.value = parts[1];
+    });
+  })();
+</script>
+{% endblock %}

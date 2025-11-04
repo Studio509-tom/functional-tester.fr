@@ -1,0 +1,68 @@
+/* Global UI polish for Functional Tester */
+
+/* Links: cleaner default, better hover/focus, accessible */
+a {
+  color: var(--bs-primary);
+  text-decoration: none;
+  transition: color .15s ease, text-underline-offset .15s ease, text-decoration-color .15s ease;
+  text-decoration-color: color-mix(in oklab, var(--bs-primary) 50%, transparent);
+}
+a:hover {
+  color: color-mix(in oklab, var(--bs-primary) 92%, white 8%);
+  text-decoration: underline;
+  text-underline-offset: .18em;
+}
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 .25rem rgba(var(--bs-primary-rgb), .35);
+  border-radius: .25rem;
+}
+
+/* Muted/quiet link variant */
+.link-muted { color: var(--bs-secondary-color); }
+.link-muted:hover { color: var(--bs-body-color); }
+
+/* Arrow-on-hover utility for navigational links */
+.link-caret { position: relative; }
+.link-caret::after {
+  content: "\2192"; /* → */
+  opacity: 0;
+  transform: translateX(-2px);
+  margin-left: .25rem;
+  transition: transform .15s ease, opacity .15s ease;
+}
+.link-caret:hover::after { opacity: 1; transform: translateX(0); }
+
+/* Tables and list groups subtle hover + spacing */
+.table tbody tr { transition: background-color .18s ease; }
+.table tbody tr:hover { background-color: rgba(108,117,125,.06); }
+
+.list-group-item { transition: background-color .18s ease, transform .12s ease; }
+.list-group-item:hover { background-color: rgba(108,117,125,.06); }
+
+/* Staggered appearance */
+.fade-in { animation: fadeIn .35s ease-out both; }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+.fade-in-up { animation: fadeInUp .28s ease-out both; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
+
+/* Buttons micro-interactions */
+.btn { transition: transform .08s ease, box-shadow .15s ease; }
+.btn:active { transform: translateY(1px); }
+.btn:hover { box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+.btn-loading { position: relative; pointer-events: none; opacity: .85; }
+.btn-loading .spinner { position: absolute; left: .5rem; top: 50%; transform: translateY(-50%) }
+
+/* Sidebar active gradient and sticky tweaks */
+.list-group .list-group-item.active {
+  background: linear-gradient(90deg, var(--bs-primary), #6ea8fe);
+  border-color: var(--bs-primary);
+}
+
+/* Code blocks adapt to theme */
+.themed-pre { background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+
+/* Utility: clickable row effect */
+.table-row-link { cursor: pointer; }
+.table-row-link:hover { background-color: rgba(108,117,125,.06); }

@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+{% block title %}Dossier {{ folder.name }}{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Dossier: {{ folder.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="{{ path('folder_edit', {id: folder.id}) }}" class="btn btn-outline-secondary">Éditer</a>
+    <form method="post" action="{{ path('folder_duplicate', {id: folder.id}) }}" class="d-inline" onsubmit="return confirm('Dupliquer ce dossier et son contenu ?');">
+      <input type="hidden" name="_token" value="{{ csrf_token('dup_folder_' ~ folder.id) }}"/>
+      <button class="btn btn-outline-primary">Dupliquer</button>
+    </form>
+    <a href="{{ path('folder_index') }}" class="btn btn-outline-primary">Tous les dossiers</a>
+  </div>
+  
+</div>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-12 col-md-6">
+    <input type="search" class="form-control" name="q" value="{{ q }}" placeholder="Rechercher un scénario par nom...">
+  </div>
+  <div class="col-12 col-md-3">
+    <button class="btn btn-primary w-100">Rechercher</button>
+  </div>
+  <div class="col-12 col-md-3 text-md-end">
+    <a href="{{ path('scenario_new') }}" class="btn btn-success">Nouveau scénario</a>
+  </div>
+</form>
+
+<table class="table table-striped">
+  <thead><tr><th>ID</th><th>Nom</th><th>Actions</th></tr></thead>
+  <tbody>
+  {% for s in scenarios %}
+    <tr>
+      <td>{{ s.id }}</td>
+      <td>{{ s.name }}</td>
+      <td>
+        <a class="btn btn-sm btn-secondary" href="{{ path('scenario_show', {id: s.id}) }}">Ouvrir</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3">Aucun scénario dans ce dossier</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

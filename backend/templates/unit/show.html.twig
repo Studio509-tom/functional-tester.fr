@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+{% block title %}Test unitaire {{ suite.name }}{% endblock %}
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Test unitaire</h1>
+  <div class="d-flex gap-2">
+    <a href="{{ path('unit_edit', {id: suite.id}) }}" class="btn btn-outline-primary"><i class="bi bi-pencil me-1"></i>Éditer</a>
+    <form method="post" action="{{ path('unit_run', {id: suite.id}) }}" class="d-inline">
+      <button class="btn btn-success"><i class="bi bi-play-fill me-1"></i>Exécuter les tests</button>
+    </form>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">{{ suite.name }}</h5>
+    <p class="card-text mb-1"><strong>Dossier:</strong> {{ suite.folder ? suite.folder.name : '—' }}</p>
+    <p class="card-text"><small class="text-muted">Créé le {{ suite.createdAt|date('Y-m-d H:i') }}</small></p>
+    <label class="form-label">Définition JSON</label>
+    <pre class="themed-pre p-3 border rounded" style="max-height: 480px; overflow: auto;">{{ suite.testsJson }}</pre>
+  </div>
+</div>
+{% endblock %}
