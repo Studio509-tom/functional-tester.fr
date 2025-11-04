@@ -79,13 +79,36 @@
     </div>
   </div>
   <div class="mb-3">
-    <label class="form-label">Étapes</label>
+    <label class="form-label d-flex align-items-center justify-content-between">
+      <span>Étapes</span>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="aiStepsBtn"><i class="bi bi-magic"></i> IA: suggérer des étapes</button>
+    </label>
     <div class="form-text mb-2">Utilisez le constructeur visuel ci-dessous. Le JSON est géré automatiquement.</div>
     {# On garde le champ pour la soumission mais on le cache #}
     {{ form_widget(form.stepsJson, { attr: form.stepsJson.vars.attr|merge({'class': (form.stepsJson.vars.attr.class|default('') ~ ' d-none')|trim }) }) }}
   </div>
   <button class="btn btn-primary">Enregistrer</button>
 {{ form_end(form) }}
+<div class="modal" tabindex="-1" id="aiStepsModal" style="display:none; background: rgba(0,0,0,0.35); position: fixed; inset: 0;">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">IA: générer des étapes</h5>
+        <button type="button" class="btn-close" id="aiStepsClose"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Décrivez le parcours utilisateur</label>
+        <textarea id="aiStepsPrompt" class="form-control" rows="5" placeholder="Ex: Aller sur https://monapp.fr, cliquer sur Connexion, saisir email/mot de passe, valider, vérifier le titre du tableau de bord…"></textarea>
+        <div class="form-text">Conseil: mentionnez les sélecteurs si possible (#id, .classe).</div>
+        <div id="aiStepsError" class="text-danger small d-none mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="aiStepsCancel">Annuler</button>
+        <button type="button" class="btn btn-primary" id="aiStepsGenerate">Générer</button>
+      </div>
+    </div>
+  </div>
+  </div>
 <script>
   (function(){
     var sel = document.getElementById('viewportPreset');
@@ -99,6 +122,35 @@
       var h = document.getElementById('{{ form.viewportHeight.vars.id }}');
       if (w) w.value = parts[0];
       if (h) h.value = parts[1];
+    });
+  })();
+</script>
+<script>
+  (function(){
+    function $(id){ return document.getElementById(id); }
+    var btn = $('aiStepsBtn'); if (!btn) return;
+    var modal = $('aiStepsModal'); var closeBtn = $('aiStepsClose'); var cancelBtn = $('aiStepsCancel'); var genBtn = $('aiStepsGenerate');
+    function show(){ modal.style.display = 'block'; }
+    function hide(){ modal.style.display = 'none'; }
+    btn.addEventListener('click', show);
+    closeBtn.addEventListener('click', hide); cancelBtn.addEventListener('click', hide);
+    genBtn.addEventListener('click', async function(){
+      var ta = $('aiStepsPrompt'); var err = $('aiStepsError'); err.classList.add('d-none'); err.textContent = '';
+      var prompt = (ta.value||'').trim(); if (!prompt) { err.textContent = 'Veuillez saisir un prompt'; err.classList.remove('d-none'); return; }
+      genBtn.disabled = true; genBtn.textContent = 'Génération…';
+      try {
+        var resp = await fetch('/api/ai/generate-scenario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
+        var data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || ('Erreur ' + resp.status));
+        var steps = Array.isArray(data.steps) ? data.steps : [];
+        var form = document.querySelector('form'); if (!form) return;
+        var taJson = form.querySelector('textarea.json-editor'); if (!taJson) return;
+        var host = taJson.previousElementSibling && taJson.previousElementSibling.previousElementSibling ? taJson.previousElementSibling.previousElementSibling : null; // builderHost in our wrapping structure
+        if (host && typeof host.__sbSetSteps === 'function') { host.__sbSetSteps(steps); }
+        else { taJson.value = JSON.stringify(steps, null, 2); }
+        hide();
+      } catch(e){ err.textContent = e.message; err.classList.remove('d-none'); }
+      finally { genBtn.disabled = false; genBtn.textContent = 'Générer'; }
     });
   })();
 </script>

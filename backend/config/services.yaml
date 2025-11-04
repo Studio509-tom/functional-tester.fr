@@ -25,3 +25,7 @@ services:
   App\Service\ScenarioDuplicator: ~
   App\Service\FolderDuplicator: ~
   App\Service\UnitTestRunner: ~
+
+  App\Service\ChatGptClient:
+    arguments:
+      $apiKey: "%env(OPENAI_API_KEY)%"
