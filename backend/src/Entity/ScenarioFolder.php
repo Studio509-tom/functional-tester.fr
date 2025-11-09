@@ -45,4 +45,46 @@ class ScenarioFolder
 
     /** @return Collection<int,self> */
     public function getChildren(): Collection { return $this->children; }
+
+    /**
+     * Ensure the existence of functional and unit test subfolders.
+     *
+     * @return ScenarioFolder[] Returns an array with the created or existing subfolders.
+     */
+    public function ensureTestSubfolders(): array
+    {
+        $subfolderNames = ['Tests fonctionnel', 'Tests unitaire'];
+        $existingSubfolders = $this->getChildren()->filter(function (self $child) use ($subfolderNames) {
+            return in_array($child->getName(), $subfolderNames, true);
+        });
+
+        $createdSubfolders = [];
+        foreach ($subfolderNames as $name) {
+            $subfolder = $existingSubfolders->filter(function (self $child) use ($name) {
+                return $child->getName() === $name;
+            })->first();
+
+            if (!$subfolder) {
+                $subfolder = new self();
+                $subfolder->setName($name);
+                $subfolder->setParent($this);
+                $this->getChildren()->add($subfolder);
+                $createdSubfolders[] = $subfolder;
+            }
+        }
+
+        return $createdSubfolders;
+    }
+
+    /**
+     * Add a child folder to this folder.
+     */
+    public function addChild(self $child): self
+    {
+        if (!$this->children->contains($child)) {
+            $this->children->add($child);
+            $child->setParent($this);
+        }
+        return $this;
+    }
 }

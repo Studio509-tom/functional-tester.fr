@@ -67,7 +67,7 @@
 			ta.parentNode.insertBefore(wrapper, ta);
 			// Step builder placeholder (will be filled after editor creation)
 			const builderHost = document.createElement('div');
-			builderHost.className = 'mb-2';
+			builderHost.className = 'mb-3';
 			wrapper.appendChild(builderHost);
 			// Toolbar to toggle between Builder and Advanced JSON
 			const toolbar = document.createElement('div');
@@ -100,6 +100,17 @@
 			toolbar.appendChild(toggleBtn);
 			wrapper.appendChild(toolbar);
 			wrapper.appendChild(ta);
+
+			// Move the Unit Test Builder block before the "Définition des tests (JSON)" label
+			try {
+				const group = ta.closest('.mb-3');
+				if (group) {
+					const labelEl = group.querySelector('label.form-label');
+					if (labelEl) {
+						group.insertBefore(builderHost, labelEl);
+					}
+				}
+			} catch(_){ }
 
 					// Initialize CodeMirror if available, else keep textarea
 					if (window.CodeMirror) {
@@ -947,7 +958,24 @@ function attachUnitTestBuilder(host, editor, textarea) {
 
 	const colName = document.createElement('div');
 	colName.className = 'col-12 col-md-4';
-	colName.innerHTML = '<label class="form-label">Nom</label><input type="text" class="form-control form-control-sm" id="ub-name" placeholder="Ex: GET / 200">';
+	colName.innerHTML = [
+		'<div class="input-group input-group-sm mb-1">',
+		'<span class="input-group-text" title="Nom du test">🧪</span>',
+		'<input type="text" class="form-control" id="ub-name" placeholder="Nom du test (ex: GET / 200)">',
+		'</div>',
+		'<div class="form-text">Nom lisible du test. S’affiche en gras dans la liste.</div>'
+	].join('');
+
+	// New: Folder field for grouping tests visually
+	const colFolder = document.createElement('div');
+	colFolder.className = 'col-6 col-md-2';
+	colFolder.innerHTML = [
+		'<div class="input-group input-group-sm mb-1">',
+		'<span class="input-group-text" title="Groupe / dossier">📁</span>',
+		'<input type="text" class="form-control" id="ub-folder" placeholder="Dossier (ex: Auth)">',
+		'</div>',
+		'<div class="form-text">Regroupe visuellement les tests (badge).</div>'
+	].join('');
 
 	const colMethod = document.createElement('div');
 	colMethod.className = 'col-6 col-md-2';
@@ -1026,7 +1054,7 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	colBtns.className = 'col-12 d-flex flex-wrap gap-2';
 	colBtns.innerHTML = '<button type="button" class="btn btn-sm btn-primary" id="ub-add">Ajouter le test</button> <button type="button" class="btn btn-sm btn-success d-none" id="ub-save">Mettre à jour</button> <button type="button" class="btn btn-sm btn-outline-secondary" id="ub-clear">Vider</button> <button type="button" class="btn btn-sm btn-outline-primary" id="ub-example">Exemple basique</button> <button type="button" class="btn btn-sm btn-outline-success" id="ub-run">Exécuter la suite</button>';
 
-	row.append(colName, colMethod, colUrl, colHeaders, colBody,
+	row.append(colName, colFolder, colMethod, colUrl, colHeaders, colBody,
 		// Capture group
 		colCaptureVar, colCaptureType, colCaptureJson, colCaptureRegex, colCaptureHeader, colCapsExtra,
 		// Assertions
@@ -1038,6 +1066,11 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	list.id = 'ub-list';
 
 	body.append(title, row, list);
+	// Live preview of name + dossier stylisation
+	const preview = document.createElement('div');
+	preview.id = 'ub-preview';
+	preview.className = 'small mt-2 mb-2 pb-2 border-bottom';
+	body.insertBefore(preview, list);
 	// Output panel for run results
 	const runOut = document.createElement('div');
 	runOut.id = 'ub-run-output';
@@ -1047,6 +1080,17 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	host.appendChild(card);
 
 	const inpName = () => document.getElementById('ub-name');
+	const inpFolder = () => document.getElementById('ub-folder');
+	function updatePreview() {
+		const nameVal = (inpName().value||'').trim();
+		const folderVal = (inpFolder().value||'').trim();
+		const badge = folderVal ? '<span class="badge rounded-pill text-bg-secondary me-2">' + folderVal + '</span>' : '';
+		const title = nameVal || '<em class="text-muted">Nom du test…</em>';
+		preview.innerHTML = badge + '<strong>' + title + '</strong>' + '<span class="ms-2 text-muted">(aperçu)</span>';
+	}
+	inpName().addEventListener('input', updatePreview);
+	inpFolder().addEventListener('input', updatePreview);
+	updatePreview();
 	const selMethod = () => document.getElementById('ub-method');
 	const inpUrl = () => document.getElementById('ub-url');
 	const taHeaders = () => document.getElementById('ub-headers');
@@ -1126,6 +1170,7 @@ function attachUnitTestBuilder(host, editor, textarea) {
 
 	function buildCaseFromFields() {
 		const name = (inpName().value||'').trim();
+		const folder = (inpFolder().value||'').trim();
 		const method = (selMethod().value||'GET').toUpperCase();
 		const url = (inpUrl().value||'').trim();
 		if (!url) { alert('Veuillez saisir une URL'); return; }
@@ -1139,6 +1184,7 @@ function attachUnitTestBuilder(host, editor, textarea) {
 		const aJEqVar = (inJEqVar().value||'').trim();
 		const aJEqExpr = (inJEqExpr().value||'').trim();
 		const test = { name: name || (method + ' ' + url), method, url };
+		if (folder) test.folder = folder;
 		if (headers && Object.keys(headers).length) test.headers = headers;
 		if (bodyText) test.body = bodyJson ? (function(){ try { return JSON.parse(bodyText); } catch(e) { alert('Corps JSON invalide: ' + e.message); throw e; } })() : bodyText;
 		const asrt = {};
@@ -1178,7 +1224,12 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	}
 
 	function summarizeCase(t) {
-		let s = (t.method||'GET') + ' ' + (t.url||'');
+		// Header line: folder badge + strong name
+		const folderBadge = t.folder ? '<span class="badge rounded-pill text-bg-secondary me-2">' + String(t.folder) + '</span>' : '';
+		const title = (t.name && t.name.trim()) ? t.name : ((t.method||'GET') + ' ' + (t.url||''));
+		let header = folderBadge + '<strong>' + title + '</strong>';
+		// Detail line: method + url + asserts + capture info
+		let detail = '<span class="text-muted">' + (t.method||'GET') + '</span> ' + (t.url||'');
 		if (t.assert) {
 			const parts = [];
 			if (typeof t.assert.status !== 'undefined') parts.push('status:' + t.assert.status);
@@ -1190,12 +1241,12 @@ function attachUnitTestBuilder(host, editor, textarea) {
 				if (typeof t.assert.json.equalsExpr !== 'undefined') rhs = '(' + t.assert.json.equalsExpr + ')';
 				parts.push('json ' + t.assert.json.path + ' == ' + rhs);
 			}
-			if (parts.length) s += ' — ' + parts.join(', ');
+			if (parts.length) detail += ' — ' + parts.join(', ');
 		}
 		if (t.capture) {
-			if (Array.isArray(t.capture)) s += ' — cap:' + t.capture.length; else if (t.capture.var) s += ' — cap:' + t.capture.var;
+			if (Array.isArray(t.capture)) detail += ' — cap:' + t.capture.length; else if (t.capture.var) detail += ' — cap:' + t.capture.var;
 		}
-		return s;
+		return header + '<div class="small text-muted">' + detail + '</div>';
 	}
 
 	function renderList() {
@@ -1220,11 +1271,12 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	}
 
 	function resetFields() {
-		inpName().value = ''; selMethod().value = 'GET'; inpUrl().value=''; taHeaders().value=''; taBody().value=''; cbBodyJson().checked=false; inStatus().value=''; inContains().value=''; inJPath().value=''; inJEq().value=''; inJEqVar().value=''; inJEqExpr().value=''; inCapVar().value=''; inCapType().value=''; inCapJson().value=''; inCapRegex().value=''; inCapHeader().value='';
+		inpName().value = ''; inpFolder().value = ''; selMethod().value = 'GET'; inpUrl().value=''; taHeaders().value=''; taBody().value=''; cbBodyJson().checked=false; inStatus().value=''; inContains().value=''; inJPath().value=''; inJEq().value=''; inJEqVar().value=''; inJEqExpr().value=''; inCapVar().value=''; inCapType().value=''; inCapJson().value=''; inCapRegex().value=''; inCapHeader().value='';
 		// update capture visibility
 		const evt = new Event('change'); inCapType().dispatchEvent(evt);
 		// clear extra captures
 		extraCapsList().innerHTML = '';
+		updatePreview();
 	}
 
 	function move(i, delta) { const tests = getTests(); const j = i+delta; if (j<0 || j>=tests.length) return; const tmp = tests[i]; tests[i]=tests[j]; tests[j]=tmp; setTests(tests); }
@@ -1232,6 +1284,8 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	function edit(i) {
 		const tests = getTests(); const t = tests[i]; if (!t) return;
 		inpName().value = t.name || '';
+		inpFolder().value = t.folder || '';
+		updatePreview();
 		selMethod().value = (t.method||'GET').toUpperCase();
 		inpUrl().value = t.url || '';
 		taHeaders().value = t.headers ? JSON.stringify(t.headers, null, 2) : '';
@@ -1336,10 +1390,12 @@ function attachUnitTestBuilder(host, editor, textarea) {
 			html += 'Total: ' + data.total + ' — Réussis: ' + data.passed + ' — Échecs: ' + data.failed + '<br>';
 			html += '<ul class="list-unstyled mb-0">';
 			(data.cases||[]).forEach(c => {
-				const statusTxt = (c.status !== null ? c.status : '—');
-				const badge = c.ok ? '<span class="text-success">✔</span>' : '<span class="text-danger">✖</span>';
+				const statusTxt = (c.status !== null && typeof c.status !== 'undefined' ? c.status : '—');
+				const okBadge = c.ok ? '<span class="text-success">✔</span>' : '<span class="text-danger">✖</span>';
 				const err = c.error ? (' <span class="text-danger">' + c.error + '</span>') : '';
-				html += '<li>' + badge + ' <strong>' + c.name + '</strong> (' + statusTxt + ') ' + err + ' — ' + c.durationMs + 'ms</li>';
+				const folderBadge = c.folder ? '<span class="badge rounded-pill text-bg-secondary me-2">' + String(c.folder) + '</span>' : '';
+				const title = (c.name && String(c.name).trim()) ? c.name : '';
+				html += '<li>' + okBadge + ' ' + folderBadge + '<strong>' + title + '</strong> <span class="text-muted">(' + statusTxt + ', ' + c.durationMs + 'ms)</span>' + err + '</li>';
 			});
 			html += '</ul>';
 			runOut.innerHTML = html;

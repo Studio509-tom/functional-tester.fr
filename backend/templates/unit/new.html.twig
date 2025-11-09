@@ -3,8 +3,23 @@
 {% block body %}
 <h1 class="mb-3">Nouveau test unitaire</h1>
 {{ form_start(form) }}
-  {{ form_row(form.name) }}
-  {{ form_row(form.folder) }}
+  <div class="mb-3">
+    <label class="form-label">Nom du test</label>
+    <div class="input-group input-group-sm mb-1">
+      <span class="input-group-text">🧪</span>
+      {{ form_widget(form.name, { attr: { id: 'ub-name', class: 'form-control form-control-sm' } }) }}
+    </div>
+    <div class="form-text">Nom lisible du test (s'affiche en gras dans la liste).</div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Dossier</label>
+    <div class="input-group input-group-sm mb-1">
+      <span class="input-group-text">📁</span>
+      {{ form_widget(form.folder, { attr: { id: 'ub-folder', class: 'form-select form-select-sm' } }) }}
+    </div>
+    <div class="form-text">Regroupe visuellement les tests (badge).</div>
+  </div>
   <div class="mb-3">
   <label class="form-label d-flex align-items-center justify-content-between">
     <span>Définition des tests (JSON)</span>

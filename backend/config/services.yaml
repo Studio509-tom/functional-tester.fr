@@ -29,3 +29,8 @@ services:
   App\Service\ChatGptClient:
     arguments:
       $apiKey: "%env(OPENAI_API_KEY)%"
+
+  App\Form\UnitTestSuiteType:
+    arguments:
+      $folderRepo: '@App\Repository\ScenarioFolderRepository'
+      $em: "@doctrine.orm.entity_manager"

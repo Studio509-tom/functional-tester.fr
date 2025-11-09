@@ -23,8 +23,13 @@ class ScenarioFolderController extends AbstractController
 {
     #[Route('/{id}', name: 'folder_show', methods: ['GET'])]
     /** Show a folder and its scenarios with optional name filter */
-    public function show(ScenarioFolder $folder, Request $req, TestScenarioRepository $scenarios): Response
+    public function show(int $id, Request $req, TestScenarioRepository $scenarios, EntityManagerInterface $em): Response
     {
+        $folder = $em->getRepository(ScenarioFolder::class)->find($id);
+        if (!$folder) {
+            throw $this->createNotFoundException('Dossier introuvable.');
+        }
+
         $q = trim((string) $req->query->get('q', ''));
         $items = $scenarios->searchByFolderAndName($folder, $q);
         return $this->render('folder/show.html.twig', [
@@ -59,11 +64,25 @@ class ScenarioFolderController extends AbstractController
 
     #[Route('/{id}/edit', name: 'folder_edit', methods: ['GET','POST'])]
     /** Edit an existing folder */
-    public function edit(ScenarioFolder $folder, Request $req, EntityManagerInterface $em): Response
+    public function edit(int $id, Request $req, EntityManagerInterface $em, ScenarioFolderRepository $repo): Response
     {
+        $folder = $repo->find($id);
+        if (!$folder) {
+            throw $this->createNotFoundException('Dossier introuvable.');
+        }
+
         $form = $this->createForm(ScenarioFolderType::class, $folder);
         $form->handleRequest($req);
         if ($form->isSubmitted() && $form->isValid()) {
+            // Handle parent-child relationship
+            $parent = $folder->getParent();
+            if ($parent) {
+                $parent = $repo->find($parent->getId());
+                if ($parent) {
+                    $parent->addChild($folder);
+                    $em->persist($parent);
+                }
+            }
             $em->flush();
             return $this->redirectToRoute('folder_index');
         }
@@ -72,8 +91,13 @@ class ScenarioFolderController extends AbstractController
 
     #[Route('/{id}/delete', name: 'folder_delete', methods: ['POST'])]
     /** Delete a folder */
-    public function delete(ScenarioFolder $folder, EntityManagerInterface $em, Request $req): Response
+    public function delete(int $id, EntityManagerInterface $em, Request $req): Response
     {
+        $folder = $em->getRepository(ScenarioFolder::class)->find($id);
+        if (!$folder) {
+            throw $this->createNotFoundException('Dossier introuvable.');
+        }
+
         if ($this->isCsrfTokenValid('del_folder_'.$folder->getId(), $req->request->get('_token'))) {
             $em->remove($folder);
             $em->flush();
@@ -83,8 +107,13 @@ class ScenarioFolderController extends AbstractController
 
     #[Route('/{id}/duplicate', name: 'folder_duplicate', methods: ['POST'])]
     /** Deep-duplicate a folder tree and contained scenarios */
-    public function duplicate(ScenarioFolder $folder, FolderDuplicator $duplicator, EntityManagerInterface $em, Request $req): Response
+    public function duplicate(int $id, FolderDuplicator $duplicator, EntityManagerInterface $em, Request $req): Response
     {
+        $folder = $em->getRepository(ScenarioFolder::class)->find($id);
+        if (!$folder) {
+            throw $this->createNotFoundException('Dossier introuvable.');
+        }
+
         if (!$this->isCsrfTokenValid('dup_folder_'.$folder->getId(), $req->request->get('_token'))) {
             return $this->redirectToRoute('folder_show', ['id' => $folder->getId()]);
         }

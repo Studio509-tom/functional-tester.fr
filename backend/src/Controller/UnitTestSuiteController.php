@@ -34,6 +34,13 @@ class UnitTestSuiteController extends AbstractController
         $form = $this->createForm(UnitTestSuiteType::class, $suite);
         $form->handleRequest($req);
         if ($form->isSubmitted() && $form->isValid()) {
+            // Ensure subfolders for the selected parent folder
+            $parentFolder = $suite->getFolder();
+            if ($parentFolder) {
+                $parentFolder->ensureTestSubfolders();
+                $em->persist($parentFolder);
+            }
+
             // Basic JSON validation
             try { json_decode($suite->getTestsJson(), true, 512, JSON_THROW_ON_ERROR); }
             catch (\Throwable $e) {

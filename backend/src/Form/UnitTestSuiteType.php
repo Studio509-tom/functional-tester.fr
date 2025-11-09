@@ -6,6 +6,8 @@ namespace App\Form;
 
 use App\Entity\UnitTestSuite;
 use App\Entity\ScenarioFolder;
+use App\Repository\ScenarioFolderRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -15,6 +17,11 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class UnitTestSuiteType extends AbstractType
 {
+    public function __construct(
+        private readonly ScenarioFolderRepository $folderRepo,
+        private readonly EntityManagerInterface $em,
+    ) {}
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
@@ -45,5 +52,31 @@ class UnitTestSuiteType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults(['data_class' => UnitTestSuite::class]);
+    }
+
+    private function ensureDefaultFolders(array $names): void
+    {
+        $created = false;
+        foreach ($names as $n) {
+            $exists = $this->folderRepo->findOneBy(['name' => $n]);
+            if (!$exists) {
+                $f = new ScenarioFolder();
+                $f->setName($n);
+                $this->em->persist($f);
+                $created = true;
+            }
+        }
+        if ($created) {
+            $this->em->flush();
+        }
+    }
+
+    private function ensureSubfoldersForParent(ScenarioFolder $parent): void
+    {
+        $createdSubfolders = $parent->ensureTestSubfolders();
+        foreach ($createdSubfolders as $subfolder) {
+            $this->em->persist($subfolder);
+        }
+        $this->em->flush();
     }
 }
