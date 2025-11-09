@@ -49,6 +49,8 @@
     <a class="navbar-brand" href="{{ path('dashboard') }}">Functional Tester</a>
     <div class="ms-auto d-flex align-items-center">
       <button id="themeToggle" type="button" class="btn btn-sm btn-outline-light" aria-label="Basculer le mode sombre">Mode sombre</button>
+      <button id="aiQuickTestBtn" type="button" class="btn btn-sm btn-outline-info ms-2" aria-label="Test IA simple">Test IA</button>
+      <span id="aiQuickTestResult" class="ms-2 text-info small"></span>
     </div>
   </div>
 </nav>
@@ -85,5 +87,6 @@
 <script src="/js/app.js?v={{ app.debug ? date().timestamp : '' }}"></script>
 <script src="/js/pages/scenario.js?v={{ app.debug ? date().timestamp : '' }}"></script>
 <script src="/js/pages/unit.js?v={{ app.debug ? date().timestamp : '' }}"></script>
+<script src="/js/ai-quick-test.js?v={{ app.debug ? date().timestamp : '' }}"></script>
 </body>
 </html>

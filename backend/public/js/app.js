@@ -189,6 +189,34 @@
 										{ action: 'viewport', width: 390, height: 844 },
 										{ action: 'userAgent', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }
 									];
+								case 'multiPageSum':
+									return [
+										{
+											name: 'Enter 1 on Page A',
+											method: 'POST',
+											url: 'https://example.com/page-a',
+											headers: { 'Content-Type': 'application/json' },
+											body: { value: 1 },
+											assert: { status: 200 }
+										},
+										{
+											name: 'Enter 2 on Page B',
+											method: 'POST',
+											url: 'https://example.com/page-b',
+											headers: { 'Content-Type': 'application/json' },
+											body: { value: 2 },
+											assert: { status: 200 }
+										},
+										{
+											name: 'Verify sum on Page C',
+											method: 'GET',
+											url: 'https://example.com/page-c',
+											assert: {
+												status: 200,
+												json: { path: 'result.sum', equals: 3 }
+											}
+										}
+									];
 								default:
 									return null;
 							}
@@ -275,6 +303,34 @@
 										{ action: 'viewport', width: 390, height: 844 },
 										{ action: 'userAgent', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }
 									];
+								case 'multiPageSum':
+									return [
+										{
+											name: 'Enter 1 on Page A',
+											method: 'POST',
+											url: 'https://example.com/page-a',
+											headers: { 'Content-Type': 'application/json' },
+											body: { value: 1 },
+											assert: { status: 200 }
+										},
+										{
+											name: 'Enter 2 on Page B',
+											method: 'POST',
+											url: 'https://example.com/page-b',
+											headers: { 'Content-Type': 'application/json' },
+											body: { value: 2 },
+											assert: { status: 200 }
+										},
+										{
+											name: 'Verify sum on Page C',
+											method: 'GET',
+											url: 'https://example.com/page-c',
+											assert: {
+												status: 200,
+												json: { path: 'result.sum', equals: 3 }
+											}
+										}
+									];
 								default:
 									return null;
 							}
@@ -341,6 +397,48 @@
 						return [{ name: 'GET / returns 200', method: 'GET', url: '/', assert: { status: 200 } }];
 					case 'postJson201':
 						return [{ name: 'POST /api/items returns 201', method: 'POST', url: '/api/items', headers: { 'Content-Type': 'application/json' }, body: { name: 'Item' }, assert: { status: 201 } }];
+					case 'loginExtranet':
+						return [
+							{
+								name: 'Login extranet.startengo.fr',
+								method: 'POST',
+								url: 'https://extranet.startengo.fr',
+								headers: { 'Content-Type': 'application/json' },
+								body: {
+									email: 'tom.delva@startengo.fr',
+									password: 'TDelva@82'
+								},
+								assert: { status: 200 }
+							}
+						];
+					case 'multiPageSum':
+						return [
+							{
+								name: 'Enter 1 on Page A',
+								method: 'POST',
+								url: 'https://example.com/page-a',
+								headers: { 'Content-Type': 'application/json' },
+								body: { value: 1 },
+								assert: { status: 200 }
+							},
+							{
+								name: 'Enter 2 on Page B',
+								method: 'POST',
+								url: 'https://example.com/page-b',
+								headers: { 'Content-Type': 'application/json' },
+								body: { value: 2 },
+								assert: { status: 200 }
+							},
+							{
+								name: 'Verify sum on Page C',
+								method: 'GET',
+								url: 'https://example.com/page-c',
+								assert: {
+									status: 200,
+									json: { path: 'result.sum', equals: 3 }
+								}
+							}
+						];
 					default:
 						return null;
 				}
@@ -883,17 +981,68 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	colAssertJsonEq.className = 'col-12 col-md-3';
 	colAssertJsonEq.innerHTML = '<label class="form-label">Valeur attendue</label><input type="text" class="form-control form-control-sm" id="ub-ajeq" placeholder="valeur">';
 
-	const colBtns = document.createElement('div');
-	colBtns.className = 'col-12 d-flex gap-2';
-	colBtns.innerHTML = '<button type="button" class="btn btn-sm btn-primary" id="ub-add">Ajouter le test</button> <button type="button" class="btn btn-sm btn-success d-none" id="ub-save">Mettre à jour</button> <button type="button" class="btn btn-sm btn-outline-secondary" id="ub-clear">Vider</button> <button type="button" class="btn btn-sm btn-outline-primary" id="ub-example">Exemple basique</button>';
+	// Additional assertion inputs: variable and expression
+	const colAssertJsonEqVar = document.createElement('div');
+	colAssertJsonEqVar.className = 'col-12 col-md-3';
+	colAssertJsonEqVar.innerHTML = '<label class="form-label">Valeur attendue (variable)</label><input type="text" class="form-control form-control-sm" id="ub-ajeqvar" placeholder="ex: A">';
 
-	row.append(colName, colMethod, colUrl, colHeaders, colBody, colAssertStatus, colAssertContains, colAssertJsonPath, colAssertJsonEq, colBtns);
+	const colAssertJsonEqExpr = document.createElement('div');
+	colAssertJsonEqExpr.className = 'col-12 col-md-3';
+	colAssertJsonEqExpr.innerHTML = '<label class="form-label">Valeur attendue (expression)</label><input type="text" class="form-control form-control-sm" id="ub-ajeqexpr" placeholder="ex: A + B">';
+
+	// Capture controls (no-code)
+	const colCaptureVar = document.createElement('div');
+	colCaptureVar.className = 'col-6 col-md-2';
+	colCaptureVar.innerHTML = '<label class="form-label">Capture: variable</label><input type="text" class="form-control form-control-sm" id="ub-capvar" placeholder="ex: A">';
+
+	const colCaptureType = document.createElement('div');
+	colCaptureType.className = 'col-6 col-md-2';
+	colCaptureType.innerHTML = '<label class="form-label">Type</label><select class="form-select form-select-sm" id="ub-captype"><option value="">—</option><option value="json">JSON path</option><option value="regex">Regex</option><option value="header">Header</option></select>';
+
+	const colCaptureJson = document.createElement('div');
+	colCaptureJson.className = 'col-12 col-md-3 ub-cap-field ub-cap-json';
+	colCaptureJson.innerHTML = '<label class="form-label">Chemin JSON à capturer</label><input type="text" class="form-control form-control-sm" id="ub-capjson" placeholder="ex: value ou data.total">';
+
+	const colCaptureRegex = document.createElement('div');
+	colCaptureRegex.className = 'col-12 col-md-3 ub-cap-field ub-cap-regex';
+	colCaptureRegex.innerHTML = '<label class="form-label">Regex sur le corps</label><input type="text" class="form-control form-control-sm" id="ub-capregex" placeholder="ex: total=(\\d+)">';
+
+	const colCaptureHeader = document.createElement('div');
+	colCaptureHeader.className = 'col-12 col-md-3 ub-cap-field ub-cap-header';
+	colCaptureHeader.innerHTML = '<label class="form-label">Nom d\'en-tête</label><input type="text" class="form-control form-control-sm" id="ub-capheader" placeholder="ex: Set-Cookie">';
+
+	// Extra captures container (repeatable rows)
+	const colCapsExtra = document.createElement('div');
+	colCapsExtra.className = 'col-12';
+	colCapsExtra.innerHTML = [
+		'<div class="d-flex justify-content-between align-items-center mb-1">',
+		'<label class="form-label mb-0">Captures supplémentaires (optionnel)</label>',
+		'<button type="button" class="btn btn-sm btn-outline-secondary" id="ub-capadd">Ajouter une capture</button>',
+		'</div>',
+		'<div id="ub-caps-list" class="d-flex flex-column gap-2"></div>'
+	].join('');
+
+	const colBtns = document.createElement('div');
+	colBtns.className = 'col-12 d-flex flex-wrap gap-2';
+	colBtns.innerHTML = '<button type="button" class="btn btn-sm btn-primary" id="ub-add">Ajouter le test</button> <button type="button" class="btn btn-sm btn-success d-none" id="ub-save">Mettre à jour</button> <button type="button" class="btn btn-sm btn-outline-secondary" id="ub-clear">Vider</button> <button type="button" class="btn btn-sm btn-outline-primary" id="ub-example">Exemple basique</button> <button type="button" class="btn btn-sm btn-outline-success" id="ub-run">Exécuter la suite</button>';
+
+	row.append(colName, colMethod, colUrl, colHeaders, colBody,
+		// Capture group
+		colCaptureVar, colCaptureType, colCaptureJson, colCaptureRegex, colCaptureHeader, colCapsExtra,
+		// Assertions
+		colAssertStatus, colAssertContains, colAssertJsonPath, colAssertJsonEq, colAssertJsonEqVar, colAssertJsonEqExpr,
+		colBtns);
 
 	const list = document.createElement('ul');
 	list.className = 'list-group mt-3';
 	list.id = 'ub-list';
 
 	body.append(title, row, list);
+	// Output panel for run results
+	const runOut = document.createElement('div');
+	runOut.id = 'ub-run-output';
+	runOut.className = 'mt-3 small';
+	body.appendChild(runOut);
 	card.appendChild(body);
 	host.appendChild(card);
 
@@ -907,6 +1056,69 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	const inContains = () => document.getElementById('ub-acontains');
 	const inJPath = () => document.getElementById('ub-ajpath');
 	const inJEq = () => document.getElementById('ub-ajeq');
+	const inJEqVar = () => document.getElementById('ub-ajeqvar');
+	const inJEqExpr = () => document.getElementById('ub-ajeqexpr');
+	const inCapVar = () => document.getElementById('ub-capvar');
+	const inCapType = () => document.getElementById('ub-captype');
+	const inCapJson = () => document.getElementById('ub-capjson');
+	const inCapRegex = () => document.getElementById('ub-capregex');
+	const inCapHeader = () => document.getElementById('ub-capheader');
+
+	// Helpers to manage extra capture rows
+	const extraCapsList = () => card.querySelector('#ub-caps-list');
+	function createCapRow(prefill) {
+		const row = document.createElement('div');
+		row.className = 'ub-cap-row row g-2 align-items-end border rounded p-2';
+		row.innerHTML = [
+			'<div class="col-6 col-md-2"><label class="form-label">Variable</label><input type="text" class="form-control form-control-sm ub-ce-var" placeholder="ex: X"></div>',
+			'<div class="col-6 col-md-2"><label class="form-label">Type</label><select class="form-select form-select-sm ub-ce-type"><option value="">—</option><option value="json">JSON path</option><option value="regex">Regex</option><option value="header">Header</option></select></div>',
+			'<div class="col-12 col-md-3 ub-ce-field ub-ce-json"><label class="form-label">Chemin JSON</label><input type="text" class="form-control form-control-sm ub-ce-json-input" placeholder="ex: data.id"></div>',
+			'<div class="col-12 col-md-3 ub-ce-field ub-ce-regex"><label class="form-label">Regex</label><input type="text" class="form-control form-control-sm ub-ce-regex-input" placeholder="ex: total=(\\d+)"></div>',
+			'<div class="col-12 col-md-3 ub-ce-field ub-ce-header"><label class="form-label">En-tête</label><input type="text" class="form-control form-control-sm ub-ce-header-input" placeholder="ex: Set-Cookie"></div>',
+			'<div class="col-12 col-md-2 text-end"><button type="button" class="btn btn-sm btn-outline-danger ub-ce-del">Supprimer</button></div>'
+		].join('');
+		const varEl = row.querySelector('.ub-ce-var');
+		const typeEl = row.querySelector('.ub-ce-type');
+		const jsonWrap = row.querySelector('.ub-ce-json');
+		const regexWrap = row.querySelector('.ub-ce-regex');
+		const headerWrap = row.querySelector('.ub-ce-header');
+		const jsonInput = row.querySelector('.ub-ce-json-input');
+		const regexInput = row.querySelector('.ub-ce-regex-input');
+		const headerInput = row.querySelector('.ub-ce-header-input');
+		function updateVis() {
+			jsonWrap.style.display = 'none'; regexWrap.style.display = 'none'; headerWrap.style.display = 'none';
+			if (typeEl.value === 'json') jsonWrap.style.display = '';
+			if (typeEl.value === 'regex') regexWrap.style.display = '';
+			if (typeEl.value === 'header') headerWrap.style.display = '';
+		}
+		typeEl.addEventListener('change', updateVis);
+		row.querySelector('.ub-ce-del').addEventListener('click', () => { row.remove(); });
+		// prefill
+		if (prefill) {
+			varEl.value = prefill.var || '';
+			if (typeof prefill.json !== 'undefined') { typeEl.value = 'json'; jsonInput.value = prefill.json; }
+			else if (typeof prefill.regex !== 'undefined') { typeEl.value = 'regex'; regexInput.value = prefill.regex; }
+			else if (typeof prefill.header !== 'undefined') { typeEl.value = 'header'; headerInput.value = prefill.header; }
+		}
+		updateVis();
+		return row;
+	}
+	const btnAddCap = card.querySelector('#ub-capadd');
+	if (btnAddCap) btnAddCap.addEventListener('click', () => { extraCapsList().appendChild(createCapRow()); });
+
+	// Capture field visibility toggle
+	(function(){
+		const sel = inCapType(); if (!sel) return;
+		function updateCapVis() {
+			const v = sel.value;
+			[colCaptureJson, colCaptureRegex, colCaptureHeader].forEach(c => c.style.display = 'none');
+			if (v === 'json') colCaptureJson.style.display = '';
+			if (v === 'regex') colCaptureRegex.style.display = '';
+			if (v === 'header') colCaptureHeader.style.display = '';
+		}
+		sel.addEventListener('change', updateCapVis);
+		updateCapVis();
+	})();
 
 	function parseHeaders() {
 		try { const raw = (taHeaders().value||'').trim(); return raw ? JSON.parse(raw) : {}; } catch(e) { alert('En-têtes JSON invalides: ' + e.message); return null; }
@@ -924,13 +1136,43 @@ function attachUnitTestBuilder(host, editor, textarea) {
 		const aContains = (inContains().value||'').trim();
 		const aJPath = (inJPath().value||'').trim();
 		const aJEq = (inJEq().value||'').trim();
+		const aJEqVar = (inJEqVar().value||'').trim();
+		const aJEqExpr = (inJEqExpr().value||'').trim();
 		const test = { name: name || (method + ' ' + url), method, url };
 		if (headers && Object.keys(headers).length) test.headers = headers;
 		if (bodyText) test.body = bodyJson ? (function(){ try { return JSON.parse(bodyText); } catch(e) { alert('Corps JSON invalide: ' + e.message); throw e; } })() : bodyText;
 		const asrt = {};
 		if (!isNaN(aStatus)) asrt.status = aStatus;
 		if (aContains) asrt.contains = aContains;
-		if (aJPath) asrt.json = { path: aJPath, equals: aJEq };
+		if (aJPath) {
+			asrt.json = { path: aJPath };
+			if (aJEqVar) asrt.json.equalsVar = aJEqVar; else if (aJEqExpr) asrt.json.equalsExpr = aJEqExpr; else if (aJEq) asrt.json.equals = aJEq;
+		}
+
+		// Capture block (primary + extra rows)
+		const captures = [];
+		const cVar = (inCapVar().value||'').trim();
+		const cType = (inCapType().value||'').trim();
+		if (cVar && cType) {
+			const cap = { var: cVar };
+			if (cType === 'json') { const p = (inCapJson().value||'').trim(); if (p) cap.json = p; }
+			if (cType === 'regex') { const r = (inCapRegex().value||'').trim(); if (r) cap.regex = r; }
+			if (cType === 'header') { const h = (inCapHeader().value||'').trim(); if (h) cap.header = h; }
+			captures.push(cap);
+		}
+		// extras
+		card.querySelectorAll('.ub-cap-row').forEach(row => {
+			const v = (row.querySelector('.ub-ce-var').value||'').trim();
+			const t = (row.querySelector('.ub-ce-type').value||'').trim();
+			if (!v || !t) return;
+			const cap = { var: v };
+			if (t === 'json') { const p = (row.querySelector('.ub-ce-json-input').value||'').trim(); if (p) cap.json = p; }
+			if (t === 'regex') { const r = (row.querySelector('.ub-ce-regex-input').value||'').trim(); if (r) cap.regex = r; }
+			if (t === 'header') { const h = (row.querySelector('.ub-ce-header-input').value||'').trim(); if (h) cap.header = h; }
+			if (Object.keys(cap).length > 1) captures.push(cap);
+		});
+		if (captures.length === 1) test.capture = captures[0];
+		else if (captures.length > 1) test.capture = captures;
 		if (Object.keys(asrt).length) test.assert = asrt;
 		return test;
 	}
@@ -941,8 +1183,17 @@ function attachUnitTestBuilder(host, editor, textarea) {
 			const parts = [];
 			if (typeof t.assert.status !== 'undefined') parts.push('status:' + t.assert.status);
 			if (t.assert.contains) parts.push("contient:'" + t.assert.contains + "'");
-			if (t.assert.json && t.assert.json.path) parts.push('json ' + t.assert.json.path + ' == ' + (t.assert.json.equals ?? ''));
+			if (t.assert.json && t.assert.json.path) {
+				let rhs = '';
+				if (typeof t.assert.json.equals !== 'undefined') rhs = t.assert.json.equals;
+				if (typeof t.assert.json.equalsVar !== 'undefined') rhs = '{{' + t.assert.json.equalsVar + '}}';
+				if (typeof t.assert.json.equalsExpr !== 'undefined') rhs = '(' + t.assert.json.equalsExpr + ')';
+				parts.push('json ' + t.assert.json.path + ' == ' + rhs);
+			}
 			if (parts.length) s += ' — ' + parts.join(', ');
+		}
+		if (t.capture) {
+			if (Array.isArray(t.capture)) s += ' — cap:' + t.capture.length; else if (t.capture.var) s += ' — cap:' + t.capture.var;
 		}
 		return s;
 	}
@@ -969,7 +1220,11 @@ function attachUnitTestBuilder(host, editor, textarea) {
 	}
 
 	function resetFields() {
-		inpName().value = ''; selMethod().value = 'GET'; inpUrl().value=''; taHeaders().value=''; taBody().value=''; cbBodyJson().checked=false; inStatus().value=''; inContains().value=''; inJPath().value=''; inJEq().value='';
+		inpName().value = ''; selMethod().value = 'GET'; inpUrl().value=''; taHeaders().value=''; taBody().value=''; cbBodyJson().checked=false; inStatus().value=''; inContains().value=''; inJPath().value=''; inJEq().value=''; inJEqVar().value=''; inJEqExpr().value=''; inCapVar().value=''; inCapType().value=''; inCapJson().value=''; inCapRegex().value=''; inCapHeader().value='';
+		// update capture visibility
+		const evt = new Event('change'); inCapType().dispatchEvent(evt);
+		// clear extra captures
+		extraCapsList().innerHTML = '';
 	}
 
 	function move(i, delta) { const tests = getTests(); const j = i+delta; if (j<0 || j>=tests.length) return; const tmp = tests[i]; tests[i]=tests[j]; tests[j]=tmp; setTests(tests); }
@@ -984,7 +1239,28 @@ function attachUnitTestBuilder(host, editor, textarea) {
 		inStatus().value = (t.assert && typeof t.assert.status !== 'undefined') ? t.assert.status : '';
 		inContains().value = (t.assert && t.assert.contains) ? t.assert.contains : '';
 		inJPath().value = (t.assert && t.assert.json && t.assert.json.path) ? t.assert.json.path : '';
-		inJEq().value = (t.assert && t.assert.json) ? (t.assert.json.equals ?? '') : '';
+		inJEq().value = (t.assert && t.assert.json && typeof t.assert.json.equals !== 'undefined') ? t.assert.json.equals : '';
+		inJEqVar().value = (t.assert && t.assert.json && typeof t.assert.json.equalsVar !== 'undefined') ? t.assert.json.equalsVar : '';
+		inJEqExpr().value = (t.assert && t.assert.json && typeof t.assert.json.equalsExpr !== 'undefined') ? t.assert.json.equalsExpr : '';
+		// capture(s)
+		extraCapsList().innerHTML = '';
+		const caps = (t.capture ? (Array.isArray(t.capture) ? t.capture : [t.capture]) : []);
+		if (caps.length > 0) {
+			// primary takes first
+			const first = caps[0];
+			inCapVar().value = first.var || '';
+			let type = '';
+			if (typeof first.json !== 'undefined') { type = 'json'; inCapJson().value = first.json; }
+			else if (typeof first.regex !== 'undefined') { type = 'regex'; inCapRegex().value = first.regex; }
+			else if (typeof first.header !== 'undefined') { type = 'header'; inCapHeader().value = first.header; }
+			inCapType().value = type; const evt = new Event('change'); inCapType().dispatchEvent(evt);
+			// rest to extra rows
+			for (let i2 = 1; i2 < caps.length; i2++) {
+				extraCapsList().appendChild(createCapRow(caps[i2]));
+			}
+		} else {
+			inCapVar().value = ''; inCapType().value = ''; inCapJson().value=''; inCapRegex().value=''; inCapHeader().value=''; const evt = new Event('change'); inCapType().dispatchEvent(evt);
+		}
 		editIndex = i;
 		card.querySelector('#ub-add').classList.add('d-none');
 		card.querySelector('#ub-save').classList.remove('d-none');
@@ -1004,7 +1280,77 @@ function attachUnitTestBuilder(host, editor, textarea) {
 		} catch(_){}
 	});
 	card.querySelector('#ub-clear').addEventListener('click', () => { if (confirm('Vider tous les tests ?')) setTests([]); });
-	card.querySelector('#ub-example').addEventListener('click', () => { const sample = [{ name:'GET / 200', method:'GET', url:'/', assert:{ status:200 } }]; setTests(sample); });
+	// Replace the basic example with a richer A+B=C demo below
+
+	// Replace basic example with multi-step variable capture sum demonstration
+	const exBtn = card.querySelector('#ub-example');
+	if (exBtn) {
+		exBtn.textContent = 'Exemple A+B=C';
+		exBtn.addEventListener('click', (e) => {
+			e.preventDefault();
+			const demo = [
+				{
+					name: 'Page A met 1',
+					method: 'POST',
+					url: 'https://example.com/page-a',
+					headers: { 'Content-Type': 'application/json' },
+					body: { value: 1 },
+					assert: { status: 200 },
+					capture: { var: 'A', json: 'value' }
+				},
+				{
+					name: 'Page B met 2',
+					method: 'POST',
+					url: 'https://example.com/page-b',
+					headers: { 'Content-Type': 'application/json' },
+					body: { value: 2 },
+					assert: { status: 200 },
+					capture: { var: 'B', json: 'value' }
+				},
+				{
+					name: 'Vérifier somme sur Page C',
+					method: 'GET',
+					url: 'https://example.com/page-c',
+					assert: { status: 200, json: { path: 'result.sum', equalsExpr: 'A + B' } }
+				}
+			];
+			setTests(demo);
+		});
+	}
+
+	// Run button logic (AJAX)
+	const btnRun = card.querySelector('#ub-run');
+	btnRun.addEventListener('click', async () => {
+		const tests = getTests();
+		if (!tests.length) { alert('Aucun test à exécuter'); return; }
+		btnRun.disabled = true; const orig = btnRun.textContent; btnRun.textContent = 'Exécution…';
+		runOut.textContent = 'Exécution en cours...'; runOut.classList.remove('text-danger','text-success');
+		try {
+			const resp = await fetch('/api/unit-tests/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tests }) });
+			const data = await resp.json();
+			if (resp.status !== 200 || data.error) {
+				throw new Error(data.error || ('Erreur ' + resp.status));
+			}
+			// Build summary
+			let html = '';
+			html += 'Total: ' + data.total + ' — Réussis: ' + data.passed + ' — Échecs: ' + data.failed + '<br>';
+			html += '<ul class="list-unstyled mb-0">';
+			(data.cases||[]).forEach(c => {
+				const statusTxt = (c.status !== null ? c.status : '—');
+				const badge = c.ok ? '<span class="text-success">✔</span>' : '<span class="text-danger">✖</span>';
+				const err = c.error ? (' <span class="text-danger">' + c.error + '</span>') : '';
+				html += '<li>' + badge + ' <strong>' + c.name + '</strong> (' + statusTxt + ') ' + err + ' — ' + c.durationMs + 'ms</li>';
+			});
+			html += '</ul>';
+			runOut.innerHTML = html;
+			runOut.classList.add(data.failed ? 'text-danger' : 'text-success');
+		} catch(e) {
+			runOut.textContent = e.message;
+			runOut.classList.add('text-danger');
+		} finally {
+			btnRun.disabled = false; btnRun.textContent = orig;
+		}
+	});
 
 	// Expose for snippets
 	host.__ubSetTests = setTests;

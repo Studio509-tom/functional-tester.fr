@@ -180,6 +180,31 @@ class ChatGptClient
         throw new \RuntimeException('Échec de l\'appel OpenAI après plusieurs tentatives');
     }
 
+    /**
+     * Effectue un appel très simple pour vérifier la connectivité: calculer 1 + 1.
+     * Retourne uniquement la réponse numérique nettoyée (ex: "2").
+     * En cas d'erreur ou réponse non exploitable, une exception est levée.
+     */
+    public function quickSimpleAddition(): string
+    {
+        // Pas de cache: on veut tester la connexion réelle
+        $system = 'Tu es un assistant qui répond uniquement par un nombre brut sans texte supplémentaire.';
+        $user = 'Combien font 1 + 1 ? Répond uniquement par le nombre.';
+        $content = $this->chat($system, $user);
+        // Extraire le premier chiffre/valeur plausible
+        if (preg_match('/\b([0-9]+)\b/', $content, $m)) {
+            return $m[1];
+        }
+        // Si pas trouvé, nettoyer
+        $trim = trim($content);
+        // Normaliser réponses éventuelles comme "2." ou "2\n"
+        $trim = rtrim($trim, ".\n\r ");
+        if (ctype_digit($trim)) {
+            return $trim;
+        }
+        throw new \RuntimeException('Réponse IA inattendue: ' . $content);
+    }
+
     private function parseRetryAfter(array $headers): ?int
     {
         foreach ($headers as $h) {
