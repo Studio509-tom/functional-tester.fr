@@ -66,3 +66,10 @@ a:focus-visible {
 /* Utility: clickable row effect */
 .table-row-link { cursor: pointer; }
 .table-row-link:hover { background-color: rgba(108,117,125,.06); }
+
+/* Moved from inline styles in Twig */
+.sticky-top-1 { position: sticky; top: 1rem; }
+.modal-overlay { display:none; background: rgba(0,0,0,0.35); position: fixed; inset: 0; }
+.pre-scroll-480 { max-height: 480px; overflow: auto; }
+.truncate-380 { max-width: 380px; }
+.img-responsive-block { width: 100%; height: auto; display: block; }

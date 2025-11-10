@@ -7,6 +7,7 @@
 (function(){
   if (typeof document === 'undefined') return;
   document.addEventListener('DOMContentLoaded', function(){
+    // (Builder géré par app.js via CodeMirror ou fallback)
     // Viewport preset logic
     var sel = document.getElementById('viewportPreset');
     if (sel) {

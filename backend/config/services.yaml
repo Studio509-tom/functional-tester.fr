@@ -10,6 +10,9 @@ services:
   App\Controller\:
     resource: ../src/Controller/
     tags: ["controller.service_arguments"]
+    exclude:
+      - "../src/Controller/Admin/UserAdminController.php"
+      - "../src/Controller/SecurityController.php"
 
   # Register Doctrine repositories (ServiceEntityRepository) as services
   App\Repository\:
@@ -34,3 +37,12 @@ services:
     arguments:
       $folderRepo: '@App\Repository\ScenarioFolderRepository'
       $em: "@doctrine.orm.entity_manager"
+
+  # Explicitly register Admin controller to avoid class discovery scan issue
+  App\Controller\Admin\UserAdminController:
+    tags: ["controller.service_arguments"]
+
+  # Register event subscribers
+  App\EventSubscriber\AdminBootstrapSubscriber: ~
+  App\Controller\SecurityController:
+    tags: ["controller.service_arguments"]

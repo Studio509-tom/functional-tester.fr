@@ -1,0 +1,26 @@
+{# Custom form theme: ensure every field gets form-control unless it's checkbox/radio or select which already styled #}
+{% use 'bootstrap_5_layout.html.twig' %}
+
+{% block form_widget_simple %}
+    {% set attr = attr|merge({'class': (attr.class|default('') ~ ' form-control')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Textarea inherits same rule #}
+{% block textarea_widget %}
+    {% set attr = attr|merge({'class': (attr.class|default('') ~ ' form-control')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Choice (single select) gets form-select instead; keep additional classes #}
+{% block choice_widget_collapsed %}
+    {% set attr = attr|merge({'class': (attr.class|default('') ~ ' form-select')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{# Multiple select also #}
+{% block choice_widget_expanded %}
+    {{ parent() }} {# checkboxes/radios already have bootstrap classes #}
+{% endblock %}
+
+{# Checkbox/radio left untouched (bootstrap theme covers them) #}

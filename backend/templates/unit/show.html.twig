@@ -16,7 +16,7 @@
     <p class="card-text mb-1"><strong>Dossier:</strong> {{ suite.folder ? suite.folder.name : '—' }}</p>
     <p class="card-text"><small class="text-muted">Créé le {{ suite.createdAt|date('Y-m-d H:i') }}</small></p>
     <label class="form-label">Définition JSON</label>
-    <pre class="themed-pre p-3 border rounded" style="max-height: 480px; overflow: auto;">{{ suite.testsJson }}</pre>
+  <pre class="themed-pre p-3 border rounded pre-scroll-480">{{ suite.testsJson }}</pre>
   </div>
 </div>
 {% endblock %}

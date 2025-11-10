@@ -69,7 +69,7 @@
             <td>{{ loop.index }}</td>
             <td>{{ c.name }}</td>
             <td><span class="badge text-bg-secondary">{{ c.method }}</span></td>
-            <td class="text-truncate" style="max-width: 380px;" title="{{ c.url }}">{{ c.url }}</td>
+            <td class="text-truncate truncate-380" title="{{ c.url }}">{{ c.url }}</td>
             <td>{{ c.status ?? '-' }}</td>
             <td>
               {% if c.ok %}<span class="badge text-bg-success">OK</span>{% else %}<span class="badge text-bg-danger">ÉCHEC</span>{% endif %}

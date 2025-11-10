@@ -84,11 +84,11 @@
       <button type="button" class="btn btn-sm btn-outline-primary" id="aiStepsBtn"><i class="bi bi-magic"></i> IA: suggérer des étapes</button>
     </label>
     <div class="form-text mb-2">Utilisez le constructeur visuel. Le JSON est géré automatiquement.</div>
-    {{ form_widget(form.stepsJson, { attr: form.stepsJson.vars.attr|merge({'class': (form.stepsJson.vars.attr.class|default('') ~ ' d-none')|trim }) }) }}
+    {{ form_widget(form.stepsJson, { attr: form.stepsJson.vars.attr|merge({'class': (form.stepsJson.vars.attr.class|default('') ~ ' d-none json-editor')|trim }) }) }}
   </div>
   <button class="btn btn-primary">Mettre à jour</button>
 {{ form_end(form) }}
-<div class="modal" tabindex="-1" id="aiStepsModal" style="display:none; background: rgba(0,0,0,0.35); position: fixed; inset: 0;">
+<div class="modal modal-overlay" tabindex="-1" id="aiStepsModal">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -108,12 +108,4 @@
     </div>
   </div>
   </div>
-<script>
-  (function(){
-    var sel = document.getElementById('viewportPreset');
-    if (!sel) return;
-    sel.addEventListener('change', function(){
-      {# JS moved to /js/pages/scenario.js #}
-  })();
-</script>
 {% endblock %}

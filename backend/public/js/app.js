@@ -525,6 +525,7 @@ console.log('Functional Tester app.js loaded with JSON editor enhancements');
 // ----------------------
 function attachStepBuilder(host, editor, textarea) {
 	// Utilities
+	function escapeHtml(str){return String(str).replace(/[&<>"']/g,function(ch){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]);});}
 	function getSteps() {
 		try { return JSON.parse(editor.getValue() || '[]'); } catch (_) { return []; }
 	}
@@ -532,6 +533,8 @@ function attachStepBuilder(host, editor, textarea) {
 		editor.setValue(JSON.stringify(steps, null, 2));
 		renderList();
 	}
+	// Variables store (UI-only; optional apply into steps)
+	let vars = {};
 	let editIndex = null;
 
 	// Create controls
@@ -545,6 +548,46 @@ function attachStepBuilder(host, editor, textarea) {
 
 	const row = document.createElement('div');
 	row.className = 'row g-2 align-items-end';
+
+	// Fragments toolbar
+	const fragBar = document.createElement('div');
+	fragBar.className = 'd-flex justify-content-end gap-2 mb-2';
+	const fragSelect = document.createElement('select');
+	fragSelect.className = 'form-select form-select-sm w-auto';
+	fragSelect.id = 'sb-fragment';
+	fragSelect.innerHTML = [
+		'<option value="" selected>— Fragment —</option>',
+		'<option value="login">Login (email/mot de passe)</option>',
+		'<option value="logout">Logout (bouton)</option>',
+		'<option value="openMenu">Ouvrir menu</option>',
+		'<option value="dashboardCheck">Vérifier dashboard</option>'
+	].join('');
+	const fragBtn = document.createElement('button');
+	fragBtn.type = 'button';
+	fragBtn.className = 'btn btn-sm btn-outline-primary';
+	fragBtn.id = 'sb-insert-fragment';
+	fragBtn.textContent = 'Insérer';
+	fragBar.appendChild(fragSelect);
+	fragBar.appendChild(fragBtn);
+	const varsCard = document.createElement('div');
+	varsCard.className = 'card mb-2';
+	varsCard.innerHTML = [
+		'<div class="card-body">',
+		'  <div class="d-flex justify-content-between align-items-center mb-2">',
+		'    <strong>Variables (facultatif)</strong>',
+		'    <button type="button" class="btn btn-sm btn-outline-secondary" id="sb-apply-vars" title="Remplacer {{var}} dans les étapes">Appliquer aux étapes</button>',
+		'  </div>',
+		'  <div class="input-group input-group-sm mb-2">',
+		'    <span class="input-group-text">Nom</span>',
+		'    <input type="text" class="form-control" id="sb-var-name" placeholder="ex: email">',
+		'    <span class="input-group-text">Valeur</span>',
+		'    <input type="text" class="form-control" id="sb-var-value" placeholder="ex: admin@exemple.fr">',
+		'    <button type="button" class="btn btn-outline-secondary" id="sb-add-var">Ajouter</button>',
+		'  </div>',
+		'  <ul class="list-group list-group-flush small" id="sb-vars-list"></ul>',
+		'</div>'
+	].join('');
+
 
 	// Action select
 		const colAction = document.createElement('div');
@@ -635,7 +678,14 @@ function attachStepBuilder(host, editor, textarea) {
 	list.className = 'list-group mt-3';
 	list.id = 'sb-list';
 
-	body.append(title, row, list);
+	// Output panel for run results (inline, no alert)
+	const runOut = document.createElement('div');
+	runOut.id = 'sb-run-output';
+	runOut.className = 'mt-3 small';
+	runOut.setAttribute('role', 'status');
+	runOut.setAttribute('aria-live', 'polite');
+
+	body.append(title, fragBar, row, varsCard, list, runOut);
 	card.appendChild(body);
 	host.appendChild(card);
 
@@ -733,8 +783,18 @@ function attachStepBuilder(host, editor, textarea) {
 		const a = selAction.value;
 		const step = { action: a };
 		if (a === 'goto') {
-			if (!inpUrl.value) { alert('Veuillez saisir une URL'); return; }
-			step.url = inpUrl.value;
+			let url = (inpUrl.value||'').trim();
+			if (!url) { alert('Veuillez saisir une URL'); return; }
+			// Auto-compléter si l’utilisateur oublie le schéma
+			if (!/^https?:\/\//i.test(url)) {
+				if (/^[\w.-]+\.[A-Za-z]{2,}(?:\/.*)?$/.test(url)) {
+					url = 'https://' + url;
+				} else {
+					alert('Veuillez saisir une URL complète commençant par http:// ou https://');
+					return;
+				}
+			}
+			step.url = url;
 		} else if (a === 'fill') {
 			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
 			step.selector = inpSel.value;
@@ -839,20 +899,145 @@ function attachStepBuilder(host, editor, textarea) {
 		setSteps(sample);
 	});
 
-	card.querySelector('#sb-test').addEventListener('click', async () => {
+	// Variables UI behavior
+	const varsList = () => document.getElementById('sb-vars-list');
+	const inVarName = () => document.getElementById('sb-var-name');
+	const inVarValue = () => document.getElementById('sb-var-value');
+	function renderVars() {
+		const ul = varsList(); if (!ul) return;
+		ul.innerHTML = '';
+		Object.keys(vars).forEach((k) => {
+			const li = document.createElement('li');
+			li.className = 'list-group-item d-flex justify-content-between align-items-center';
+			li.innerHTML = '<span><code>{{'+k+'}}</code> = ' + escapeHtml(String(vars[k])) + '</span>'+
+				'<div class="btn-group btn-group-sm">'+
+				'<button type="button" class="btn btn-outline-secondary" data-k="'+k+'" data-act="edit">Éditer</button>'+
+				'<button type="button" class="btn btn-outline-danger" data-k="'+k+'" data-act="del">Suppr.</button>'+
+				'</div>';
+			li.addEventListener('click', (e) => {
+				const btn = e.target.closest('button'); if (!btn) return;
+				const key = btn.getAttribute('data-k'); const act = btn.getAttribute('data-act');
+				if (act === 'del') { delete vars[key]; renderVars(); }
+				if (act === 'edit') { const nv = prompt('Nouvelle valeur pour '+key, vars[key]||''); if (nv!==null) { vars[key]=nv; renderVars(); } }
+			});
+			ul.appendChild(li);
+		});
+	}
+	function replaceVarsInString(s) {
+		if (typeof s !== 'string' || !s) return s;
+		return s.replace(/\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g, (m, g1) => {
+			return Object.prototype.hasOwnProperty.call(vars, g1) ? String(vars[g1]) : m;
+		});
+	}
+	function applyVarsToSteps() {
 		const steps = getSteps();
+		const walk = (obj) => {
+			if (Array.isArray(obj)) return obj.map(walk);
+			if (obj && typeof obj === 'object') {
+				const out = {}; Object.keys(obj).forEach(k => { out[k] = walk(obj[k]); }); return out;
+			}
+			if (typeof obj === 'string') return replaceVarsInString(obj);
+			return obj;
+		};
+		setSteps(steps.map(walk));
+	}
+	const btnAddVar = () => document.getElementById('sb-add-var');
+	const btnApplyVars = () => document.getElementById('sb-apply-vars');
+	if (btnAddVar()) btnAddVar().addEventListener('click', () => {
+		const k = (inVarName().value||'').trim(); const v = (inVarValue().value||'').trim(); if (!k) return;
+		vars[k] = v; renderVars();
+		// Ne pas vider les champs pour que l'utilisateur puisse appliquer plusieurs fois ou ajuster
+	});
+	if (btnApplyVars()) btnApplyVars().addEventListener('click', () => { applyVarsToSteps(); });
+	renderVars();
+
+	// Fragments insertion
+	function buildFragment(id) {
+		switch(id) {
+			case 'login':
+				return [
+					{ action: 'goto', url: '/login' },
+					{ action: 'fill', selector: '[name=email], #email, input[type=email]', value: '{{email}}' },
+					{ action: 'fill', selector: '[name=password], #password, input[type=password]', value: '{{password}}' },
+					{ action: 'click', selector: 'button[type=submit], .btn-primary' },
+					{ action: 'waitFor', selector: '#dashboard, [data-page="dashboard"]', timeout: 5000 }
+				];
+			case 'logout':
+				return [
+					{ action: 'click', selector: 'a[href*="logout"], .logout, [data-action="logout"]' },
+					{ action: 'wait', ms: 500 }
+				];
+			case 'openMenu':
+				return [
+					{ action: 'click', selector: '.navbar-toggler, [data-bs-toggle="collapse"]' },
+					{ action: 'wait', ms: 300 }
+				];
+			case 'dashboardCheck':
+				return [
+					{ action: 'expectText', selector: 'h1, h2', text: 'Dashboard' }
+				];
+			default:
+				return null;
+		}
+	}
+	fragBtn.addEventListener('click', () => {
+		const id = fragSelect.value; if (!id) return;
+		const frag = buildFragment(id); if (!frag) return;
+		const cur = getSteps(); setSteps(cur.concat(frag)); fragSelect.value = '';
+	});
+
+	const btnTest = card.querySelector('#sb-test');
+	btnTest.addEventListener('click', async () => {
+		const steps = getSteps();
+		// UX feedback
+		const orig = btnTest.textContent;
+		btnTest.disabled = true;
+		btnTest.textContent = 'Exécution…';
+		runOut.textContent = 'Exécution en cours…';
+		runOut.classList.remove('text-danger', 'text-success');
 		try {
-			const resp = await fetch('/api/run', {
+			// Post to the correct Symfony route under /scenario prefix
+			const resp = await fetch('/scenario/builder/run', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ steps })
 			});
-			const data = await resp.json();
+			let data;
+			try { data = await resp.json(); }
+			catch(_) { throw new Error('Réponse invalide du serveur'); }
 			const ok = !!data.success;
-			const msg = ok ? 'Test réussi ✅' : 'Échec du test ❌';
-			alert(msg + (data.errors && data.errors.length ? ('\n' + data.errors.join('\n')) : ''));
+			let html = (ok ? '<span class="text-success">Test réussi ✅</span>' : '<span class="text-danger">Échec du test ❌</span>');
+			// Affiche erreurs si présentes
+			if (data.errors && data.errors.length) {
+				html += '<ul class="mt-2 mb-0">' + data.errors.map(e => '<li>' + String(e) + '</li>').join('') + '</ul>';
+			}
+			// Affiche un bref résumé des étapes si fourni
+			let firstFailedIndex = -1;
+			if (Array.isArray(data.steps) && data.steps.length) {
+				const items = data.steps.slice(0, 50).map((s, i) => {
+					const label = (s.action || s.name || ('Étape ' + (i+1)));
+					const okStep = (s.ok === true || s.success === true);
+					if (!okStep && firstFailedIndex === -1) firstFailedIndex = i;
+					return '<li>' + (i+1) + '. ' + (okStep ? '✔ ' : '• ') + String(label) + '</li>';
+				}).join('');
+				html += '<div class="mt-2">Aperçu des étapes:</div><ul class="mb-0">' + items + '</ul>';
+			}
+			runOut.innerHTML = html;
+			runOut.classList.add(ok ? 'text-success' : 'text-danger');
+			// Mettre en évidence l’étape en échec dans la liste visuelle
+			if (!ok) {
+				// Essayer de déduire la première étape non ok si non fournie
+				if (typeof firstFailedIndex === 'number' && firstFailedIndex >= 0) {
+					const li = list && list.children && list.children[firstFailedIndex];
+					if (li) { li.classList.add('border','border-danger'); li.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+				}
+			}
 		} catch (e) {
-			alert('Erreur lors du test: ' + e.message);
+			runOut.textContent = (e && e.message) ? e.message : 'Erreur inconnue lors du test';
+			runOut.classList.add('text-danger');
+		} finally {
+			btnTest.disabled = false;
+			btnTest.textContent = orig;
 		}
 	});
 

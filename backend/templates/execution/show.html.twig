@@ -141,7 +141,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0">
-        <img src="{{ path('execution_screenshot', {id: execution.id}) }}" alt="screenshot" style="width: 100%; height: auto; display: block;"/>
+  <img src="{{ path('execution_screenshot', {id: execution.id}) }}" alt="screenshot" class="img-responsive-block"/>
       </div>
       <div class="modal-footer">
         <a class="btn btn-outline-primary" target="_blank" href="{{ path('execution_screenshot', {id: execution.id}) }}">Ouvrir dans un nouvel onglet</a>
