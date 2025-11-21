@@ -125,6 +125,41 @@ export async function runScenario(steps, outDir, options = {}) {
           const title = await page.title();
           const expected = String(step.text || step.contains || '').trim();
           if (!expected || !title.includes(expected)) throw new Error('Title does not contain '+expected+' (title: '+title+')');
+        } else if (a === 'expectVisible') {
+          await page.waitForSelector(step.selector, { visible: true });
+          const isVisible = await page.$eval(step.selector, el => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+          });
+          if (!isVisible) throw new Error('Element not visible: '+step.selector);
+        } else if (a === 'expectHidden') {
+          const exists = await page.$(step.selector);
+          if (exists) {
+            const isHidden = await page.$eval(step.selector, el => {
+              const rect = el.getBoundingClientRect();
+              const style = window.getComputedStyle(el);
+              return rect.width === 0 || rect.height === 0 || style.visibility === 'hidden' || style.display === 'none';
+            });
+            if (!isHidden) throw new Error('Element should be hidden but is visible: '+step.selector);
+          }
+        } else if (a === 'expectAttribute') {
+          await page.waitForSelector(step.selector);
+          const attr = String(step.attribute || '').trim();
+          if (!attr) throw new Error('Missing attribute name');
+          const actual = await page.$eval(step.selector, (el, a) => el.getAttribute(a), attr);
+          const expected = String(step.value ?? '').trim();
+          // If expected is an empty string, interpret as "attribute must exist" (not necessarily empty)
+          if (expected === '') {
+            if (actual === null) throw new Error('Attribute '+attr+' not present on selector '+step.selector);
+          } else {
+            if (actual !== expected) throw new Error('Attribute '+attr+' expected "'+expected+'" but got "'+actual+'"');
+          }
+        } else if (a === 'expectCount') {
+          const elements = await page.$$(step.selector);
+          const actual = elements.length;
+          const expected = Number(step.count ?? 0);
+          if (actual !== expected) throw new Error('Expected '+expected+' elements but found '+actual+' for selector '+step.selector);
         } else if (a === 'screenshot') {
           if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
           const file = 'screenshot-'+Date.now()+'.png';

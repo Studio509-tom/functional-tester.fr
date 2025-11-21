@@ -26,6 +26,17 @@
         <div class="form-text">Organisez vos scénarios par projet (optionnel).</div>
       </div>
     </div>
+    <div class="col-12 col-md-6">
+      <div class="mb-1">
+        {{ form_label(form.baseUrl, 'Base URL', {'label_attr': {'class': 'form-label'}}) }}
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-globe2"></i></span>
+          {{ form_widget(form.baseUrl, { 'attr': {'class': (form.baseUrl.vars.attr.class|default('') ~ ' form-control')|trim, 'placeholder': 'https://app.exemple.com'} }) }}
+        </div>
+        {{ form_errors(form.baseUrl) }}
+        <div class="form-text">Préfixe pour les URL relatives des étapes <code>goto</code>.</div>
+      </div>
+    </div>
   </div>
   <div class="row g-3 mb-3">
     <div class="col-12">

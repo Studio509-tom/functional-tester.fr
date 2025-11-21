@@ -607,6 +607,10 @@ function attachStepBuilder(host, editor, textarea) {
 		'  <option value="expectText">Vérifier un texte</option>',
 		'  <option value="expectUrl">Vérifier l\'URL contient</option>',
 		'  <option value="expectTitle">Vérifier le titre contient</option>',
+		'  <option value="expectVisible">Vérifier visible</option>',
+		'  <option value="expectHidden">Vérifier caché</option>',
+		'  <option value="expectAttribute">Vérifier attribut</option>',
+		'  <option value="expectCount">Vérifier nombre d\'éléments</option>',
 		'  <option value="screenshot">Capturer une image</option>',
 		'  <option value="viewport">Définir le viewport</option>',
 					'  <option value="userAgent">Définir le User-Agent</option>',
@@ -626,6 +630,16 @@ function attachStepBuilder(host, editor, textarea) {
 	const colValue = document.createElement('div');
 	colValue.className = 'col-12 col-md-3 sb-field sb-field-value';
 	colValue.innerHTML = '<label class="form-label">Valeur</label><input type="text" class="form-control form-control-sm" id="sb-value" placeholder="texte à saisir">';
+
+	// Champ pour nom d'attribut (expectAttribute)
+	const colAttr = document.createElement('div');
+	colAttr.className = 'col-12 col-md-3 sb-field sb-field-attr';
+	colAttr.innerHTML = '<label class="form-label">Attribut</label><input type="text" class="form-control form-control-sm" id="sb-attr" placeholder="ex: href, data-id">';
+
+	// Champ pour nombre attendu (expectCount)
+	const colCount = document.createElement('div');
+	colCount.className = 'col-12 col-md-3 sb-field sb-field-count';
+	colCount.innerHTML = '<label class="form-label">Nombre attendu</label><input type="number" min="0" class="form-control form-control-sm" id="sb-count" placeholder="ex: 3">';
 
 	const colText = document.createElement('div');
 	colText.className = 'col-12 col-md-3 sb-field sb-field-text';
@@ -672,20 +686,24 @@ function attachStepBuilder(host, editor, textarea) {
 		'<button type="button" class="btn btn-sm btn-outline-success" id="sb-test">Tester</button>'
 	].join(' ');
 
-	row.append(colAction, colUrl, colSelector, colValue, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw, colBtns);
+	row.append(colAction, colUrl, colSelector, colValue, colAttr, colCount, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw, colBtns);
 
 	const list = document.createElement('ul');
 	list.className = 'list-group mt-3';
 	list.id = 'sb-list';
 
 	// Output panel for run results (inline, no alert)
+	const validateOut = document.createElement('div');
+	validateOut.id = 'sb-validate-output';
+	validateOut.className = 'mt-2 small';
+
 	const runOut = document.createElement('div');
 	runOut.id = 'sb-run-output';
 	runOut.className = 'mt-3 small';
 	runOut.setAttribute('role', 'status');
 	runOut.setAttribute('aria-live', 'polite');
 
-	body.append(title, fragBar, row, varsCard, list, runOut);
+	body.append(title, fragBar, row, varsCard, validateOut, list, runOut);
 	card.appendChild(body);
 	host.appendChild(card);
 
@@ -700,6 +718,31 @@ function attachStepBuilder(host, editor, textarea) {
 	const inpWidth = () => document.getElementById('sb-width');
 	const inpHeight = () => document.getElementById('sb-height');
 	const inpUA = () => document.getElementById('sb-ua');
+
+	// Field highlighting helpers for validation feedback
+	const fieldCols = [colUrl, colSelector, colValue, colAttr, colCount, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw];
+	function clearFieldErrors() {
+		fieldCols.forEach(c => { if (c && c.classList) c.classList.remove('sb-field-error'); });
+		try { card.querySelectorAll('.form-control').forEach(i => i.removeAttribute('aria-invalid')); } catch(_){}
+	}
+	function markFieldForError(msg) {
+		if (!msg) return null;
+		const m = String(msg).toLowerCase();
+		// Order matters to avoid ambiguous matches
+		if (m.includes('selector')) { if (colSelector) colSelector.classList.add('sb-field-error'); return colSelector && colSelector.querySelector('input,textarea'); }
+		if (m.includes('attribute') || m.includes('attribute name')) { if (colAttr) colAttr.classList.add('sb-field-error'); return colAttr && colAttr.querySelector('input'); }
+		if (m.includes('count')) { if (colCount) colCount.classList.add('sb-field-error'); return colCount && colCount.querySelector('input'); }
+		if (m.includes('(goto):') || m.includes('url') || m.includes('invalid url')) { if (colUrl) colUrl.classList.add('sb-field-error'); return colUrl && colUrl.querySelector('input'); }
+		if (m.includes('ms') || m.includes('timeout')) { if (colMs) colMs.classList.add('sb-field-error'); return colMs && colMs.querySelector('input'); }
+		if (m.includes('key')) { if (colKey) colKey.classList.add('sb-field-error'); return colKey && colKey.querySelector('input'); }
+		if (m.includes('title')) { if (colText) colText.classList.add('sb-field-error'); return colText && colText.querySelector('input'); }
+		if (m.includes('text')) { if (colValue) colValue.classList.add('sb-field-error'); return colValue && colValue.querySelector('input'); }
+		if (m.includes('contains')) { if (colContains) colContains.classList.add('sb-field-error'); return colContains && colContains.querySelector('input'); }
+		if (m.includes('value')) { if (colValue) colValue.classList.add('sb-field-error'); return colValue && colValue.querySelector('input'); }
+		// fallback: highlight selector container
+		if (colSelector) { colSelector.classList.add('sb-field-error'); return colSelector.querySelector('input,textarea'); }
+		return null;
+	}
 
 	// Help texts under fields (shown on focus)
 	function makeHelp(text) { const d = document.createElement('div'); d.className = 'form-text d-none'; d.textContent = text; return d; }
@@ -743,6 +786,10 @@ function attachStepBuilder(host, editor, textarea) {
 			case 'expectText': return "Vérifie qu'un élément contient un texte donné.";
 			case 'expectUrl': return "Vérifie que l'URL courante contient un fragment texte.";
 			case 'expectTitle': return "Vérifie que le titre de la page contient un fragment texte.";
+			case 'expectVisible': return "Vérifie que l'élément ciblé est présent et visible (affiché).";
+			case 'expectHidden': return "Vérifie que l'élément ciblé est absent ou masqué (non visible).";
+			case 'expectAttribute': return "Vérifie que l'attribut spécifié possède la valeur attendue.";
+			case 'expectCount': return "Vérifie que le nombre d'éléments correspondant au sélecteur est égal au nombre attendu.";
 			case 'screenshot': return "Capture une image de la page à cet instant.";
 			case 'viewport': return "Définit la taille de la fenêtre (utile pour le responsive).";
 			case 'userAgent': return "Change le User-Agent envoyé aux sites (détection mobile/bot).";
@@ -759,7 +806,7 @@ function attachStepBuilder(host, editor, textarea) {
 	function updateVisibleFields() {
 		const a = selAction.value;
 		// reset all
-		[colUrl, colSelector, colValue, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw].forEach(c => c.style.display = 'none');
+		[colUrl, colSelector, colValue, colAttr, colCount, colText, colMs, colContains, colKey, colWidth, colHeight, colUA, colRaw].forEach(c => c.style.display = 'none');
 		if (a === 'goto') colUrl.style.display = '';
 		if (a === 'fill') { colSelector.style.display=''; colValue.style.display=''; }
 		if (a === 'click' || a === 'hover' || a === 'scroll') { colSelector.style.display=''; }
@@ -770,6 +817,9 @@ function attachStepBuilder(host, editor, textarea) {
 		if (a === 'expectText') { colSelector.style.display=''; colText.style.display=''; }
 		if (a === 'expectUrl') { colContains.style.display=''; }
 		if (a === 'expectTitle') { colText.style.display=''; }
+		if (a === 'expectVisible' || a === 'expectHidden') { colSelector.style.display=''; }
+		if (a === 'expectAttribute') { colSelector.style.display=''; colAttr.style.display=''; colValue.style.display=''; }
+		if (a === 'expectCount') { colSelector.style.display=''; colCount.style.display=''; }
 		if (a === 'viewport') { colWidth.style.display=''; colHeight.style.display=''; }
 		if (a === 'userAgent') { colUA.style.display=''; }
 		if (a === 'raw') { colRaw.style.display=''; }
@@ -837,6 +887,24 @@ function attachStepBuilder(host, editor, textarea) {
 			const t = (inpText.value||'').trim();
 			if (!t) { alert('Veuillez saisir un fragment de titre'); return; }
 			step.text = t;
+		} else if (a === 'expectVisible') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+		} else if (a === 'expectHidden') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			step.selector = inpSel.value;
+		} else if (a === 'expectAttribute') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			const attr = (document.getElementById('sb-attr').value||'').trim();
+			if (!attr) { alert("Veuillez saisir un nom d'attribut"); return; }
+			const val = (document.getElementById('sb-value').value||'').trim();
+			if (!val) { alert('Veuillez saisir une valeur attendue'); return; }
+			step.selector = inpSel.value; step.attribute = attr; step.value = val;
+		} else if (a === 'expectCount') {
+			if (!inpSel.value) { alert('Veuillez saisir un sélecteur'); return; }
+			const cnt = parseInt((document.getElementById('sb-count').value||'').trim(), 10);
+			if (isNaN(cnt)) { alert('Veuillez saisir un nombre attendu'); return; }
+			step.selector = inpSel.value; step.count = cnt;
 		} else if (a === 'screenshot') {
 			// nothing to configure
 		} else if (a === 'viewport') {
@@ -867,24 +935,77 @@ function attachStepBuilder(host, editor, textarea) {
 		const btnAdd = card.querySelector('#sb-add');
 		const btnSave = card.querySelector('#sb-save');
 		btnAdd.addEventListener('click', () => {
-			const step = buildStepFromFields();
-			if (!step) return;
-			const steps = getSteps();
-			steps.push(step);
-			setSteps(steps);
-			resetFields();
+			(async function(){
+				const step = buildStepFromFields();
+				if (!step) return;
+				validateOut.innerHTML = '';
+				clearFieldErrors();
+				btnAdd.disabled = true;
+				try {
+					const resp = await fetch('/scenario/builder/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps: [step] }) });
+					const data = await resp.json();
+					if (!data.success && Array.isArray(data.errors) && data.errors.length) {
+						// Show messages and highlight corresponding fields
+						validateOut.innerHTML = '<div class="text-danger">' + data.errors.map(e => escapeHtml(String(e))).join('<br>') + '</div>';
+						let firstFocus = null;
+						for (const e of data.errors) {
+							const el = markFieldForError(e);
+							if (el && !firstFocus) firstFocus = el;
+						}
+						if (firstFocus) { try { firstFocus.focus(); firstFocus.setAttribute('aria-invalid', 'true'); } catch(_){} }
+						return;
+					}
+					if (Array.isArray(data.warnings) && data.warnings.length) {
+						validateOut.innerHTML = '<div class="text-warning">' + data.warnings.map(e => escapeHtml(String(e))).join('<br>') + '</div>';
+					} else {
+						validateOut.innerHTML = '<div class="text-success">Validation OK</div>';
+					}
+					const steps = getSteps();
+					steps.push(step);
+					setSteps(steps);
+					resetFields();
+				} catch (e) {
+					validateOut.textContent = (e && e.message) ? 'Validation failed: ' + e.message : 'Validation failed';
+				} finally { btnAdd.disabled = false; }
+			})();
 		});
 		btnSave.addEventListener('click', () => {
-			const step = buildStepFromFields();
-			if (!step) return;
-			const steps = getSteps();
-			if (editIndex === null || editIndex < 0 || editIndex >= steps.length) return;
-			steps[editIndex] = step;
-			setSteps(steps);
-			editIndex = null;
-			btnSave.classList.add('d-none');
-			btnAdd.classList.remove('d-none');
-			resetFields();
+			(async function(){
+				const step = buildStepFromFields();
+				if (!step) return;
+				validateOut.innerHTML = '';
+				clearFieldErrors();
+				btnSave.disabled = true;
+				try {
+					const resp = await fetch('/scenario/builder/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps: [step] }) });
+					const data = await resp.json();
+					if (!data.success && Array.isArray(data.errors) && data.errors.length) {
+						validateOut.innerHTML = '<div class="text-danger">' + data.errors.map(e => escapeHtml(String(e))).join('<br>') + '</div>';
+						let firstFocus = null;
+						for (const e of data.errors) {
+							const el = markFieldForError(e);
+							if (el && !firstFocus) firstFocus = el;
+						}
+						if (firstFocus) { try { firstFocus.focus(); firstFocus.setAttribute('aria-invalid', 'true'); } catch(_){} }
+						return;
+					}
+					if (Array.isArray(data.warnings) && data.warnings.length) {
+						validateOut.innerHTML = '<div class="text-warning">' + data.warnings.map(e => escapeHtml(String(e))).join('<br>') + '</div>';
+					} else {
+						validateOut.innerHTML = '<div class="text-success">Validation OK</div>';
+					}
+					const steps = getSteps();
+					if (editIndex === null || editIndex < 0 || editIndex >= steps.length) return;
+					steps[editIndex] = step;
+					setSteps(steps);
+					editIndex = null;
+					btnSave.classList.add('d-none');
+					btnAdd.classList.remove('d-none');
+					resetFields();
+				} catch (e) {
+					validateOut.textContent = (e && e.message) ? 'Validation failed: ' + e.message : 'Validation failed';
+				} finally { btnSave.disabled = false; }
+			})();
 		});
 
 	card.querySelector('#sb-clear').addEventListener('click', () => {
@@ -989,6 +1110,10 @@ function attachStepBuilder(host, editor, textarea) {
 	const btnTest = card.querySelector('#sb-test');
 	btnTest.addEventListener('click', async () => {
 		const steps = getSteps();
+			// Read baseUrl live from form if present
+			let baseUrl = null;
+			const baseInput = document.querySelector('input[name="test_scenario[baseUrl]"]');
+			if (baseInput && baseInput.value.trim()) baseUrl = baseInput.value.trim();
 		// UX feedback
 		const orig = btnTest.textContent;
 		btnTest.disabled = true;
@@ -1000,7 +1125,7 @@ function attachStepBuilder(host, editor, textarea) {
 			const resp = await fetch('/scenario/builder/run', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ steps })
+				body: JSON.stringify({ steps, baseUrl })
 			});
 			let data;
 			try { data = await resp.json(); }
@@ -1076,6 +1201,10 @@ function attachStepBuilder(host, editor, textarea) {
 			case 'expectText': return 'Vérifier ' + (s.selector || '') + ' contient "' + (s.text || '') + '"';
 			case 'expectUrl': return 'Vérifier URL contient "' + (s.contains || s.urlContains || '') + '"';
 			case 'expectTitle': return 'Vérifier le titre contient "' + (s.text || '') + '"';
+			case 'expectVisible': return 'Vérifier visible: ' + (s.selector || '');
+			case 'expectHidden': return 'Vérifier caché: ' + (s.selector || '');
+			case 'expectAttribute': return 'Vérifier attribut ' + (s.selector || '') + ' ' + (s.attribute || '') + '="' + (s.value || '') + '"';
+			case 'expectCount': return 'Vérifier nombre (' + (s.selector || '') + ') = ' + (typeof s.count !== 'undefined' ? s.count : '0');
 			case 'screenshot': return 'Capturer une image';
 			case 'viewport': return 'Viewport ' + (s.width || 0) + 'x' + (s.height || 0);
 			case 'userAgent': return 'User-Agent personnalisé';

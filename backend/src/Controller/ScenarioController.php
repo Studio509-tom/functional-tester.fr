@@ -99,6 +99,16 @@ class ScenarioController extends AbstractController
         $em->flush();
 
         $steps = json_decode($scenario->getStepsJson(), true) ?: [];
+        // Expand relative URLs if baseUrl is defined
+        if ($scenario->getBaseUrl()) {
+            $base = $scenario->getBaseUrl();
+            $steps = array_map(function($s) use ($base) {
+                if (is_array($s) && ($s['action'] ?? null) === 'goto' && isset($s['url']) && is_string($s['url']) && str_starts_with($s['url'], '/')) {
+                    $s['url'] = rtrim($base, '/') . $s['url'];
+                }
+                return $s;
+            }, $steps);
+        }
         try {
             // Default reliability/reporting options (can be surfaced to UI later)
             $options = [
@@ -158,6 +168,19 @@ class ScenarioController extends AbstractController
     {
         $data = json_decode($request->getContent() ?? '[]', true) ?: [];
         $steps = $data['steps'] ?? [];
+        $baseUrl = isset($data['baseUrl']) && is_string($data['baseUrl']) ? trim($data['baseUrl']) : null;
+        if ($baseUrl) {
+            if ($baseUrl !== '' && str_ends_with($baseUrl, '/')) { $baseUrl = rtrim($baseUrl, '/'); }
+            if ($baseUrl && !preg_match('/^https?:\/\//i', $baseUrl) && preg_match('/^[\w.-]+\.[A-Za-z]{2,}/', $baseUrl)) {
+                $baseUrl = 'https://' . $baseUrl; // auto-normalise
+            }
+            $steps = array_map(function($s) use ($baseUrl) {
+                if (is_array($s) && ($s['action'] ?? null) === 'goto' && isset($s['url']) && is_string($s['url']) && str_starts_with($s['url'], '/')) {
+                    $s['url'] = rtrim($baseUrl, '/') . $s['url'];
+                }
+                return $s;
+            }, $steps);
+        }
         if (!is_array($steps)) {
             return new JsonResponse(['success' => false, 'errors' => ['Invalid steps payload']], 400);
         }
@@ -181,6 +204,74 @@ class ScenarioController extends AbstractController
                 'errors' => [$e->getMessage()],
             ], 500);
         }
+    }
+
+    #[Route('/builder/validate', name: 'api_validate', methods: ['POST'], priority: 9)]
+    /** Validate a steps payload and return structured errors/warnings */
+    public function apiValidate(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent() ?? '[]', true) ?: [];
+        $steps = $data['steps'] ?? [];
+        if (!is_array($steps)) {
+            return new JsonResponse(['success' => false, 'errors' => ['Invalid steps payload']], 400);
+        }
+        $errors = [];
+        $warnings = [];
+        foreach ($steps as $i => $s) {
+            $action = is_array($s) && isset($s['action']) ? (string)$s['action'] : null;
+            if (!$action) { $errors[] = "Step {$i}: missing action"; continue; }
+            switch ($action) {
+                case 'goto':
+                    if (empty($s['url']) || !is_string($s['url'])) $errors[] = "Step {$i} (goto): missing or invalid url";
+                    break;
+                case 'fill':
+                    if (empty($s['selector'])) $errors[] = "Step {$i} (fill): missing selector";
+                    break;
+                case 'click': case 'hover': case 'scroll':
+                    if (empty($s['selector'])) $errors[] = "Step {$i} ({$action}): missing selector";
+                    break;
+                case 'select':
+                    if (empty($s['selector'])) $errors[] = "Step {$i} (select): missing selector";
+                    if (!array_key_exists('value', $s)) $warnings[] = "Step {$i} (select): no value provided";
+                    break;
+                case 'wait':
+                    if (!isset($s['ms']) && !isset($s['timeout'])) $errors[] = "Step {$i} (wait): missing ms/timeout";
+                    break;
+                case 'waitFor':
+                    if (empty($s['selector'])) $errors[] = "Step {$i} (waitFor): missing selector";
+                    break;
+                case 'press':
+                    if (empty($s['key'])) $errors[] = "Step {$i} (press): missing key";
+                    break;
+                case 'expectText':
+                    if (empty($s['selector'])) $errors[] = "Step {$i} (expectText): missing selector";
+                    if (!array_key_exists('text', $s) && !array_key_exists('contains', $s)) $warnings[] = "Step {$i} (expectText): no text provided";
+                    break;
+                case 'expectUrl':
+                    if (empty($s['contains']) && empty($s['urlContains'])) $errors[] = "Step {$i} (expectUrl): missing contains fragment";
+                    break;
+                case 'expectTitle':
+                    if (empty($s['text']) && empty($s['contains'])) $errors[] = "Step {$i} (expectTitle): missing text fragment";
+                    break;
+                case 'expectVisible': case 'expectHidden':
+                    if (empty($s['selector'])) $errors[] = "Step {$i} ({$action}): missing selector";
+                    break;
+                case 'expectAttribute':
+                    if (empty($s['selector'])) { $errors[] = "Step {$i} (expectAttribute): missing selector"; }
+                    if (empty($s['attribute'])) { $errors[] = "Step {$i} (expectAttribute): missing attribute name"; }
+                    break;
+                case 'expectCount':
+                    if (empty($s['selector'])) { $errors[] = "Step {$i} (expectCount): missing selector"; }
+                    if (!isset($s['count'])) { $errors[] = "Step {$i} (expectCount): missing count"; }
+                    break;
+                case 'screenshot': case 'viewport': case 'userAgent': case 'raw':
+                    // no required fields for basic cases
+                    break;
+                default:
+                    $warnings[] = "Step {$i}: unknown action '{$action}'";
+            }
+        }
+        return new JsonResponse(['success' => count($errors) === 0, 'errors' => $errors, 'warnings' => $warnings]);
     }
 
     #[Route('/execution/{id}/screenshot', name: 'execution_screenshot', methods: ['GET'])]

@@ -81,6 +81,10 @@ class TestScenario
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $userAgent = null;
 
+    /** Optional base URL used to resolve relative `goto` steps (e.g. /login) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $baseUrl = null;
+
     public function __construct() { $this->createdAt = new \DateTimeImmutable(); $this->executions = new ArrayCollection(); }
 
     public function getId(): ?int { return $this->id; }
@@ -117,4 +121,18 @@ class TestScenario
     public function setDeviceScaleFactor(int $v): self { $this->deviceScaleFactor = max(1, min(3, $v)); return $this; }
     public function getUserAgent(): ?string { return $this->userAgent; }
     public function setUserAgent(?string $ua): self { $this->userAgent = $ua ? trim($ua) : null; return $this; }
+
+    public function getBaseUrl(): ?string { return $this->baseUrl; }
+    public function setBaseUrl(?string $b): self {
+        if ($b) {
+            $b = trim($b);
+            // Normalise: remove trailing slash except root
+            if ($b !== '' && str_ends_with($b, '/')) { $b = rtrim($b, '/'); }
+            // Auto-prepend https:// if missing scheme and looks like a host
+            if ($b && !preg_match('/^https?:\/\//i', $b) && preg_match('/^[\w.-]+\.[A-Za-z]{2,}/', $b)) {
+                $b = 'https://' . $b;
+            }
+        }
+        $this->baseUrl = $b ?: null; return $this;
+    }
 }

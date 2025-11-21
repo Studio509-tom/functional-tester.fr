@@ -32,6 +32,14 @@ class TestScenarioType extends AbstractType
                 'placeholder' => 'Aucun dossier',
                 'choice_label' => 'name',
             ])
+            ->add('baseUrl', TextType::class, [
+                'required' => false,
+                'label' => 'Base URL (préfixe des URL relatives)',
+                'attr' => [
+                    'placeholder' => 'https://app.exemple.com',
+                ],
+                'help' => 'Si défini, les étapes goto avec une URL commençant par / seront résolues avec ce préfixe.'
+            ])
             ->add('perStepScreenshot', CheckboxType::class, [
                 'required' => false,
                 'label' => 'Capture à chaque étape',
@@ -43,7 +51,7 @@ class TestScenarioType extends AbstractType
             ->add('retries', IntegerType::class, [
                 'required' => false,
                 'attr' => ['min' => 0, 'max' => 5],
-                'label' => 'Retries par étape',
+                'label' => 'Nombre d\'essais par étape',
             ])
             ->add('backoffMs', IntegerType::class, [
                 'required' => false,
